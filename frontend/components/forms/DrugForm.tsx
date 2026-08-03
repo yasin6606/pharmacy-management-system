@@ -1,0 +1,128 @@
+'use client';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useTranslations } from 'next-intl';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
+import { apiPost, apiPut } from '@/lib/api';
+import { Drug } from '@/types';
+
+const drugSchema = z.object({
+    name: z.string().min(1, 'Drug name is required'),
+    brand: z.string().optional(),
+    company: z.string().min(1, 'Company is required'),
+    enteringDate: z.string().min(1, 'Entering date is required'),
+});
+
+type DrugFormData = z.infer<typeof drugSchema>;
+
+interface DrugFormProps {
+    drug?: Drug | null;
+    onSuccess: () => void;
+    onCancel: () => void;
+}
+
+export function DrugForm({ drug, onSuccess, onCancel }: DrugFormProps) {
+    const t = useTranslations('inventory');
+    const commonT = useTranslations('common');
+    const msgT = useTranslations('messages');
+
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    const {
+        register,
+        handleSubmit,
+        formState: { errors },
+        reset,
+    } = useForm<DrugFormData>({
+        resolver: zodResolver(drugSchema),
+        defaultValues: drug
+            ? {
+                name: drug.name,
+                brand: drug.brand || '',
+                company: drug.company,
+                enteringDate: drug.enteringDate.split('T')[0],
+            }
+            : {
+                name: '',
+                brand: '',
+                company: '',
+                enteringDate: new Date().toISOString().split('T')[0],
+            },
+    });
+
+    useEffect(() => {
+        if (drug) {
+            reset({
+                name: drug.name,
+                brand: drug.brand || '',
+                company: drug.company,
+                enteringDate: drug.enteringDate.split('T')[0],
+            });
+        }
+    }, [drug, reset]);
+
+    const onSubmit = async (data: DrugFormData) => {
+        setSubmitting(true);
+        setError(null);
+        try {
+            if (drug) {
+                await apiPut(`/inventory/drugs/${drug.id}`, data);
+            } else {
+                await apiPost('/inventory/drugs', data);
+            }
+            onSuccess();
+        } catch (err: any) {
+            setError(err.response?.data?.message || msgT('error'));
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {error && (
+                <div className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
+                    {error}
+                </div>
+            )}
+
+            <Input
+                label={t('drugName')}
+                {...register('name')}
+                error={errors.name?.message}
+            />
+
+            <Input
+                label={t('brand')}
+                {...register('brand')}
+                error={errors.brand?.message}
+            />
+
+            <Input
+                label={t('company')}
+                {...register('company')}
+                error={errors.company?.message}
+            />
+
+            <Input
+                label={t('enteringDate')}
+                type="date"
+                {...register('enteringDate')}
+                error={errors.enteringDate?.message}
+            />
+
+            <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+                    {commonT('cancel')}
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                    {submitting ? commonT('saving') : drug ? commonT('save') : commonT('create')}
+                </Button>
+            </div>
+        </form>
+    );
+}

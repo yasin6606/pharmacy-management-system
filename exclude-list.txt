@@ -1,0 +1,11 @@
+.git
+frontend/package-lock.json
+frontend/dist
+frontend/build
+frontend/node_modules
+frontend/.next
+
+backend/package-lock.json
+backend/node_modules
+backend/dist
+backend/build
