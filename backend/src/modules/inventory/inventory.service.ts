@@ -13,12 +13,15 @@ export class InventoryService {
     async createDrug(data: Partial<Drug>) {
         if (!data.name?.trim()) throw new AppError('Drug name is required', 400);
         if (!data.company?.trim()) throw new AppError('Company is required', 400);
+
+        const brand = data.brand?.trim() ? data.brand.trim() : null;
+        const enteringDate = data.enteringDate ? new Date(data.enteringDate as unknown as string) : new Date();
+
         const drug = this.drugRepo.create({
-            ...data,
             name: data.name.trim(),
             company: data.company.trim(),
-            brand: data.brand?.trim() || null,
-            enteringDate: data.enteringDate ? new Date(data.enteringDate as any) : new Date(),
+            brand,
+            enteringDate,
         });
         return this.drugRepo.save(drug);
     }
@@ -39,15 +42,21 @@ export class InventoryService {
     async updateDrug(id: string, data: Partial<Drug>) {
         const drug = await this.drugRepo.findOne({where: {id}});
         if (!drug) throw new AppError('Drug not found', 404);
+
         if (data.name !== undefined) drug.name = String(data.name).trim();
         if (data.company !== undefined) drug.company = String(data.company).trim();
-        if (data.brand !== undefined) drug.brand = data.brand ? String(data.brand).trim() : null;
-        if (data.enteringDate !== undefined) drug.enteringDate = new Date(data.enteringDate as any);
+        if (data.brand !== undefined) {
+            drug.brand = data.brand ? String(data.brand).trim() : null;
+        }
+        if (data.enteringDate !== undefined) {
+            drug.enteringDate = new Date(data.enteringDate as unknown as string);
+        }
         if (data.lastPriceUpdateDate !== undefined) {
             drug.lastPriceUpdateDate = data.lastPriceUpdateDate
-                ? new Date(data.lastPriceUpdateDate as any)
+                ? new Date(data.lastPriceUpdateDate as unknown as string)
                 : null;
         }
+
         return this.drugRepo.save(drug);
     }
 
@@ -99,7 +108,9 @@ export class InventoryService {
         if (data.count !== undefined && data.count < 0) {
             throw new AppError('Batch count cannot be negative', 400);
         }
-        if (data.expirationDate !== undefined) batch.expirationDate = new Date(data.expirationDate as any);
+        if (data.expirationDate !== undefined) {
+            batch.expirationDate = new Date(data.expirationDate as unknown as string);
+        }
         if (data.count !== undefined) batch.count = data.count;
         if (data.isOffer !== undefined) batch.isOffer = data.isOffer;
         if (data.purchasePrice !== undefined) batch.purchasePrice = data.purchasePrice as any;
@@ -184,15 +195,7 @@ export class InventoryService {
             .getMany();
     }
 
-    /**
-     * Reliable catalog listing: count first, then page entities, then attach totalStock.
-     * Avoids fragile GROUP BY + entity mapping that could return empty totals.
-     */
-    async getDrugsPaginated(pagination: {
-        page?: number;
-        limit?: number;
-        search?: string;
-    }) {
+    async getDrugsPaginated(pagination: {page?: number; limit?: number; search?: string}) {
         const page = Math.max(1, pagination.page || 1);
         const limit = Math.min(100, Math.max(1, pagination.limit || 10));
         const skip = (page - 1) * limit;
@@ -241,7 +244,6 @@ export class InventoryService {
         };
     }
 
-    /** Catalog + stock snapshot for dashboard KPIs. */
     async getCatalogStats() {
         const totalDrugs = await this.drugRepo.count();
         const batchAgg = await this.batchRepo
