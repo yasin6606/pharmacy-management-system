@@ -24,7 +24,7 @@ Internal network only:
 | **`TYPEORM_SYNCHRONIZE=false`** | Schema changes go through migrations in real deploys |
 | **Healthchecks** | Compose waits until services are actually ready |
 
-## Quick start
+## Quick start (local / any VPS)
 
 ```bash
 cd infrastructure
@@ -38,6 +38,24 @@ Open http://localhost (or `HTTP_PORT` from `.env`).
 
 First visit → **Setup** page → create manager → login.
 
+## Free cloud deploy (Oracle Always Free)
+
+Full walkthrough for Ampere A1 (ARM, 2 OCPU / 12 GB):
+
+→ **[deploy/oracle-cloud.md](./deploy/oracle-cloud.md)**
+
+Scripts:
+
+| Script | Purpose |
+|--------|---------|
+| `deploy/bootstrap-oracle.sh` | Install Docker + UFW on Ubuntu ARM |
+| `deploy/update.sh` | `git pull` + rebuild stack |
+
+```bash
+# on the VM after SSH
+curl -fsSL https://raw.githubusercontent.com/yasin6606/pharmacy-management-system/main/infrastructure/deploy/bootstrap-oracle.sh | bash
+```
+
 ## Useful commands
 
 ```bash
@@ -49,7 +67,7 @@ docker compose down -v       # wipe DB + Redis data
 
 ## Local DB access (optional)
 
-Create `docker-compose.override.yaml` (gitignored if you want):
+Create `docker-compose.override.yaml`:
 
 ```yaml
 services:
