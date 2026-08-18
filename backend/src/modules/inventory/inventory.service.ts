@@ -3,8 +3,7 @@ import {Drug} from './entities/Drug';
 import {DrugBatch} from './entities/DrugBatch';
 import {StockMovement, MovementType} from './entities/StockMovement';
 import {AppError} from '../../core/errors/AppError';
-import {In} from 'typeorm';
-import {paginate} from "../../core/utils/pagination";
+import {LessThanOrEqual, MoreThan} from 'typeorm';
 
 export class InventoryService {
     private drugRepo = AppDataSource.getRepository(Drug);
@@ -22,7 +21,12 @@ export class InventoryService {
     }
 
     async getDrugById(id: string) {
-        return this.drugRepo.findOne({where: {id}, relations: ['batches', 'batches.branch']});
+        const drug = await this.drugRepo.findOne({
+            where: {id},
+            relations: ['batches', 'batches.branch'],
+        });
+        if (!drug) throw new AppError('Drug not found', 404);
+        return drug;
     }
 
     async updateDrug(id: string, data: Partial<Drug>) {
@@ -34,6 +38,12 @@ export class InventoryService {
 
     // Batches
     async addBatch(data: Partial<DrugBatch>) {
+        if (!data.drugId || !data.branchId) {
+            throw new AppError('drugId and branchId are required', 400);
+        }
+        if (data.count !== undefined && data.count < 0) {
+            throw new AppError('Batch count cannot be negative', 400);
+        }
         const batch = this.batchRepo.create(data);
         return this.batchRepo.save(batch);
     }
@@ -48,22 +58,31 @@ export class InventoryService {
         quantity: number,
         performedById: string
     ) {
+        if (quantity <= 0) throw new AppError('Quantity must be positive', 400);
+
         return AppDataSource.transaction(async (manager) => {
             const batch = await manager.findOne(DrugBatch, {
                 where: {id: batchId},
                 lock: {mode: 'pessimistic_write'},
             });
             if (!batch) throw new AppError('Batch not found', 404);
+            if (batch.branchId === toBranchId) {
+                throw new AppError('Cannot transfer to the same branch', 400);
+            }
             if (batch.count < quantity) throw new AppError('Insufficient stock', 400);
 
-            // Decrease source
             batch.count -= quantity;
             await manager.save(batch);
 
-            // Find or create destination batch
             let destBatch = await manager.findOne(DrugBatch, {
-                where: {drugId: batch.drugId, branchId: toBranchId, expirationDate: batch.expirationDate},
+                where: {
+                    drugId: batch.drugId,
+                    branchId: toBranchId,
+                    expirationDate: batch.expirationDate,
+                },
+                lock: {mode: 'pessimistic_write'},
             });
+
             if (destBatch) {
                 destBatch.count += quantity;
             } else {
@@ -79,7 +98,6 @@ export class InventoryService {
             }
             await manager.save(destBatch);
 
-            // Record movement
             await manager.save(StockMovement, {
                 drugBatchId: batch.id,
                 type: MovementType.TRANSFER,
@@ -93,48 +111,49 @@ export class InventoryService {
         });
     }
 
+    /**
+     * Returns batches that expire within the next `daysThreshold` days
+     * and still have stock remaining.
+     */
     async getExpiringBatches(daysThreshold: number = 30) {
-        const thresholdDate = new Date();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const thresholdDate = new Date(today);
         thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
-        return this.batchRepo.find({
-            where: {
-                expirationDate: In([...Array(daysThreshold).keys()].map(d => {
-                    const date = new Date();
-                    date.setDate(date.getDate() + d);
-                    return d;
-                }))
-            }, // simplified
-            relations: ['drug', 'branch'],
-        });
+
+        return this.batchRepo
+            .createQueryBuilder('batch')
+            .leftJoinAndSelect('batch.drug', 'drug')
+            .leftJoinAndSelect('batch.branch', 'branch')
+            .where('batch.expirationDate <= :thresholdDate', {thresholdDate})
+            .andWhere('batch.expirationDate >= :today', {today})
+            .andWhere('batch.count > 0')
+            .orderBy('batch.expirationDate', 'ASC')
+            .getMany();
     }
 
-    // src/modules/inventory/inventory.service.ts
-    async getDrugsPaginated(pagination: { page?: number; limit?: number }) {
+    async getDrugsPaginated(pagination: {page?: number; limit?: number}) {
         const page = Math.max(1, pagination.page || 1);
         const limit = Math.min(100, Math.max(1, pagination.limit || 10));
         const skip = (page - 1) * limit;
 
-        // Build the query that includes total stock per drug
-        const baseQuery = this.drugRepo.createQueryBuilder('drug')
+        const baseQuery = this.drugRepo
+            .createQueryBuilder('drug')
             .leftJoin('drug.batches', 'batch')
             .groupBy('drug.id')
             .select('drug')
             .addSelect('COALESCE(SUM(batch.count), 0)', 'totalStock')
             .orderBy('drug.enteringDate', 'DESC');
 
-        // Get the total number of distinct drugs
-        const totalResult = await this.drugRepo.createQueryBuilder('drug')
+        const totalResult = await this.drugRepo
+            .createQueryBuilder('drug')
             .select('COUNT(DISTINCT drug.id)', 'count')
             .getRawOne();
-        const total = parseInt((totalResult as any).count, 10) || 0;
+        const total = parseInt((totalResult as any)?.count ?? '0', 10) || 0;
 
-        // Fetch the paginated raw rows + entities
-        const {entities, raw} = await baseQuery
-            .skip(skip)
-            .take(limit)
-            .getRawAndEntities();
+        const {entities, raw} = await baseQuery.skip(skip).take(limit).getRawAndEntities();
 
-        // Merge raw totalStock into each entity
         const items = entities.map((entity, index) => ({
             ...entity,
             totalStock: raw[index] ? parseInt(raw[index].totalStock, 10) : 0,
@@ -145,7 +164,7 @@ export class InventoryService {
             total,
             page,
             limit,
-            totalPages: Math.ceil(total / limit),
+            totalPages: Math.ceil(total / limit) || 0,
         };
     }
 }
