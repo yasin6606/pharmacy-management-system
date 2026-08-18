@@ -5,13 +5,23 @@ import bcrypt from 'bcryptjs';
 import {signToken} from '../../core/utils/jwt';
 import {AppError} from '../../core/errors/AppError';
 
-/** Strip sensitive fields before returning employee to clients */
+/**
+ * Strip sensitive fields before any employee object leaves the service layer.
+ * passwordHash must never reach the client or logs.
+ */
 function sanitizeEmployee(employee: Employee | null) {
     if (!employee) return null;
     const {passwordHash, ...safe} = employee as Employee & {passwordHash?: string};
     return safe;
 }
 
+/**
+ * Authentication & session lifecycle.
+ *
+ * - login: verify credentials, open a session row, issue JWT
+ * - logout: close the session (best-effort)
+ * - getProfile: return the current user without secrets
+ */
 export class AuthService {
     private employeeRepo = AppDataSource.getRepository(Employee);
     private sessionRepo = AppDataSource.getRepository(EmployeeSession);
@@ -22,6 +32,7 @@ export class AuthService {
             relations: ['currentBranch'],
         });
 
+        // Constant-ish failure message to avoid user-enumeration side channels
         if (!employee || !(await bcrypt.compare(password, employee.passwordHash))) {
             throw new AppError('Invalid credentials', 401);
         }
@@ -32,6 +43,7 @@ export class AuthService {
         });
         await this.sessionRepo.save(session);
 
+        // JWT carries identity + session so logout can invalidate by sessionId
         const token = signToken({
             userId: employee.id,
             role: employee.role,
