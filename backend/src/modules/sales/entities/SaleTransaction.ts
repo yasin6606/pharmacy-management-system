@@ -3,6 +3,8 @@ import {DrugBatch} from '../../inventory/entities/DrugBatch';
 import {Employee} from '../../employees/entities/Employee';
 import {Branch} from '../../branches/entities/Branch';
 
+export type InsuranceProvider = 'none' | 'tamin' | 'salamat' | 'mosalah' | 'other';
+
 @Entity('sales_transactions')
 export class SaleTransaction {
     @PrimaryGeneratedColumn('uuid')
@@ -32,15 +34,21 @@ export class SaleTransaction {
     @Column({type: 'int'})
     quantity: number;
 
-    @Column({name: 'unit_price', type: 'decimal', precision: 10, scale: 2, transformer: {from: parseFloat, to: Number}})
+    @Column({
+        name: 'unit_price',
+        type: 'decimal',
+        precision: 18,
+        scale: 0,
+        transformer: {from: parseFloat, to: Number},
+    })
     unitPrice: number;
 
     @Column({
         name: 'total_price',
         type: 'decimal',
-        precision: 10,
-        scale: 2,
-        transformer: {from: parseFloat, to: Number}
+        precision: 18,
+        scale: 0,
+        transformer: {from: parseFloat, to: Number},
     })
     totalPrice: number;
 
@@ -62,12 +70,11 @@ export class SaleTransaction {
     @Column({
         name: 'franchise_fee',
         type: 'decimal',
-        precision: 10,
-        scale: 2,
+        precision: 18,
+        scale: 0,
         default: 0,
-        transformer: {from: parseFloat, to: Number}
+        transformer: {from: parseFloat, to: Number},
     })
-
     franchiseFee: number;
 
     @Column({type: 'enum', enum: ['cash', 'transfer', 'pos', 'credit'], default: 'cash'})
@@ -83,8 +90,43 @@ export class SaleTransaction {
     customerPhone: string;
 
     @Column({name: 'pos_reference', nullable: true})
-    posReference: string;   // bank transaction ID
+    posReference: string;
 
-    @Column({ name: 'is_paid', default: false })
+    @Column({name: 'is_paid', default: false})
     isPaid: boolean;
+
+    /** Insurance payer for this line (none = cash patient pays full) */
+    @Column({
+        name: 'insurance_provider',
+        type: 'varchar',
+        length: 32,
+        default: 'none',
+    })
+    insuranceProvider: InsuranceProvider;
+
+    /** National insurance / booklet / electronic ID */
+    @Column({name: 'insurance_member_id', type: 'varchar', nullable: true})
+    insuranceMemberId: string | null;
+
+    /** Amount covered by insurer (IRR) — 0 if drug not eligible or no insurance */
+    @Column({
+        name: 'insurance_coverage_amount',
+        type: 'decimal',
+        precision: 18,
+        scale: 0,
+        default: 0,
+        transformer: {from: parseFloat, to: Number},
+    })
+    insuranceCoverageAmount: number;
+
+    /** Amount paid by patient for this line (IRR) */
+    @Column({
+        name: 'patient_share_amount',
+        type: 'decimal',
+        precision: 18,
+        scale: 0,
+        default: 0,
+        transformer: {from: parseFloat, to: Number},
+    })
+    patientShareAmount: number;
 }
