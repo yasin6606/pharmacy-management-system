@@ -4,12 +4,20 @@ import {LoginForm} from '@/components/forms/LoginForm';
 import {Link} from '@/navigation';
 import {useTranslations} from 'next-intl';
 import {Pill} from 'lucide-react';
+import {ThemeToggle} from '@/components/ui/ThemeToggle';
+import {LanguageSwitcher} from '@/components/ui/LanguageSwitcher';
 
 export default function LoginPage() {
     const t = useTranslations('auth');
 
     return (
-        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+        <div className="min-h-screen flex items-center justify-center px-4 py-10 relative">
+            {/* Theme + language — available before authentication */}
+            <div className="absolute top-4 end-4 flex items-center gap-2 z-10">
+                <LanguageSwitcher />
+                <ThemeToggle />
+            </div>
+
             <div className="w-full max-w-md glass-strong rounded-2xl p-6 sm:p-8">
                 <div className="flex flex-col items-center text-center mb-6">
                     <span className="glass-chip text-[var(--color-primary)] mb-3">
