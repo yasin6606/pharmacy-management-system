@@ -10,6 +10,7 @@ export const pathnames = {
     '/dashboard': '/dashboard',
     '/inventory': '/inventory',
     '/inventory/drugs/[id]': '/inventory/drugs/[id]',
+    '/inventory/batches': '/inventory/batches',
     '/sales': '/sales',
     '/sales/records': '/sales/records',
     '/sales/new': '/sales/new',
@@ -17,7 +18,8 @@ export const pathnames = {
     '/reports': '/reports',
     '/employees': '/employees',
     '/branches': '/branches',
-    '/loss-reports': '/loss-reports'
+    '/loss-reports': '/loss-reports',
+    '/settings': '/settings',
 };
 
 export const {Link, redirect, usePathname, useRouter} =
