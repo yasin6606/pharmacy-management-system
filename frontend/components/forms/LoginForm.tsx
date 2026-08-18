@@ -6,8 +6,8 @@ import {useTranslations} from 'next-intl';
 import {Input} from '../ui/Input';
 import {Button} from '../ui/Button';
 import {useAuth} from '@/context/AuthContext';
-import {useRouter} from '@/navigation';
 import {useState} from 'react';
+import {ApiError} from '@/lib/api';
 
 export function LoginForm() {
     const t = useTranslations('auth');
@@ -15,7 +15,6 @@ export function LoginForm() {
     const m = useTranslations('messages');
 
     const {login} = useAuth();
-    const router = useRouter();
     const [error, setError] = useState('');
 
     const schema = z.object({
@@ -30,10 +29,15 @@ export function LoginForm() {
 
     const onSubmit = async (data: FormData) => {
         try {
+            setError('');
             await login(data.email, data.password);
-            router.push('/dashboard');
-        } catch (err: any) {
-            setError(err.response?.data?.message || m('error'));
+            // AuthContext already navigates to /dashboard on success
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                setError(err.message || m('error'));
+            } else {
+                setError(m('error'));
+            }
         }
     };
 
