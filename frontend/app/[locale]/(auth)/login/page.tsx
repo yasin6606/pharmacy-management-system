@@ -3,7 +3,7 @@
 import {LoginForm} from '@/components/forms/LoginForm';
 import {Link} from '@/navigation';
 import {useTranslations} from 'next-intl';
-import {Cross} from 'lucide-react';
+import {Pill} from 'lucide-react';
 
 export default function LoginPage() {
     const t = useTranslations('auth');
@@ -13,7 +13,7 @@ export default function LoginPage() {
             <div className="w-full max-w-md glass-strong rounded-2xl p-6 sm:p-8">
                 <div className="flex flex-col items-center text-center mb-6">
                     <span className="glass-chip text-[var(--color-primary)] mb-3">
-                        <Cross className="h-6 w-6" aria-hidden />
+                        <Pill className="h-6 w-6" aria-hidden />
                     </span>
                     <h1 className="page-title text-2xl sm:text-3xl text-[var(--color-foreground)]">Pharmacy MS</h1>
                     <p className="text-sm text-[var(--color-muted-foreground)] mt-1">{t('login')}</p>
