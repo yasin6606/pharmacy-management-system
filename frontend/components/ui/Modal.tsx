@@ -18,34 +18,34 @@ export function Modal({open, onClose, title, children, className}: ModalProps) {
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <Transition.Child
                     as={Fragment}
-                    enter="ease-out duration-300"
+                    enter="ease-out duration-200"
                     enterFrom="opacity-0"
                     enterTo="opacity-100"
-                    leave="ease-in duration-200"
+                    leave="ease-in duration-150"
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-[2px]" aria-hidden />
+                    <div className="fixed inset-0 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm" aria-hidden />
                 </Transition.Child>
                 <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4">
                         <Transition.Child
                             as={Fragment}
-                            enter="ease-out duration-300"
+                            enter="ease-out duration-200"
                             enterFrom="opacity-0 scale-95"
                             enterTo="opacity-100 scale-100"
-                            leave="ease-in duration-200"
+                            leave="ease-in duration-150"
                             leaveFrom="opacity-100 scale-100"
                             leaveTo="opacity-0 scale-95"
                         >
                             <Dialog.Panel
                                 className={cn(
-                                    'w-full max-w-md transform overflow-hidden rounded-2xl fantasy-panel p-6 transition-all',
+                                    'w-full max-w-md transform overflow-hidden rounded-2xl glass-strong p-5 sm:p-6 transition-all',
                                     className
                                 )}
                             >
-                                <div className="flex justify-between items-center mb-4 gap-3">
-                                    <Dialog.Title className="fantasy-title text-lg font-semibold text-[var(--color-foreground)]">
+                                <div className="flex justify-between items-start gap-3 mb-3">
+                                    <Dialog.Title className="page-title text-lg text-[var(--color-foreground)]">
                                         {title}
                                     </Dialog.Title>
                                     <button
@@ -57,7 +57,7 @@ export function Modal({open, onClose, title, children, className}: ModalProps) {
                                         <X className="h-5 w-5" />
                                     </button>
                                 </div>
-                                <div className="fantasy-ornament mb-4" aria-hidden />
+                                <div className="glass-divider mb-4" aria-hidden />
                                 {children}
                             </Dialog.Panel>
                         </Transition.Child>
