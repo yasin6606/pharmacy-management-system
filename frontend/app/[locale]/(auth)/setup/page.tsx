@@ -9,6 +9,7 @@ import {Button} from '@/components/ui/Button';
 import {apiPost, ApiError} from '@/lib/api';
 import {useRouter} from '@/navigation';
 import {useState} from 'react';
+import {Sparkles} from 'lucide-react';
 
 const schema = z.object({
     email: z.string().email(),
@@ -48,38 +49,47 @@ export default function SetupPage() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-background px-4">
-            <div className="w-full max-w-md p-6 sm:p-8 bg-card rounded-lg shadow-md border border-border">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 sm:mb-6 text-foreground text-center">
-                    {t('setup')}
-                </h1>
+        <div className="min-h-screen flex items-center justify-center px-4 py-10">
+            <div className="w-full max-w-md fantasy-panel rounded-2xl p-6 sm:p-8">
+                <div className="flex flex-col items-center text-center mb-6">
+                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-md mb-3">
+                        <Sparkles className="h-6 w-6" aria-hidden />
+                    </span>
+                    <h1 className="fantasy-title text-2xl sm:text-3xl font-bold text-[var(--color-foreground)]">
+                        {t('setup')}
+                    </h1>
+                    <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
+                        Arcane Apothecary · first steward
+                    </p>
+                    <div className="fantasy-ornament w-24 mt-4" aria-hidden />
+                </div>
 
                 {error && (
                     <div
-                        className="bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">
+                        className="bg-red-50 dark:bg-red-950/40 text-[var(--color-destructive)] p-3 rounded-lg mb-4 text-sm"
+                        role="alert"
+                    >
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                    <Input
-                        label={t('fullName')}
-                        {...register('fullName')}
-                        error={errors.fullName?.message}
-                    />
+                    <Input label={t('fullName')} {...register('fullName')} error={errors.fullName?.message} />
                     <Input
                         label={t('email')}
                         type="email"
+                        autoComplete="email"
                         {...register('email')}
                         error={errors.email?.message}
                     />
                     <Input
                         label={t('password')}
                         type="password"
+                        autoComplete="new-password"
                         {...register('password')}
                         error={errors.password?.message}
                     />
-                    <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    <Button type="submit" variant="accent" className="w-full" disabled={isSubmitting}>
                         {isSubmitting ? commonT('loading') : t('createManager')}
                     </Button>
                 </form>

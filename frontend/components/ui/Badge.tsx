@@ -3,16 +3,22 @@ import {cva, type VariantProps} from 'class-variance-authority';
 import {cn} from '@/lib/utils';
 
 const badgeVariants = cva(
-    'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+    'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
     {
         variants: {
             variant: {
-                default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
-                secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
-                success: 'border-transparent bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-                danger: 'border-transparent bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-                warning: 'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200',
-                outline: 'text-foreground border-border',   // ← new outline variant
+                default:
+                    'border-transparent bg-[var(--color-primary)] text-[var(--color-primary-foreground)]',
+                secondary:
+                    'border-transparent bg-[var(--color-secondary)] text-[var(--color-secondary-foreground)]',
+                success:
+                    'border-transparent bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200',
+                danger:
+                    'border-transparent bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200',
+                warning:
+                    'border-transparent bg-amber-100 text-amber-950 dark:bg-amber-950 dark:text-amber-100',
+                outline: 'text-[var(--color-foreground)] border-[var(--color-border)]',
+                gold: 'border-transparent bg-[var(--color-accent)] text-[var(--color-accent-foreground)]',
             },
         },
         defaultVariants: {
@@ -23,8 +29,7 @@ const badgeVariants = cva(
 
 export interface BadgeProps
     extends React.HTMLAttributes<HTMLDivElement>,
-        VariantProps<typeof badgeVariants> {
-}
+        VariantProps<typeof badgeVariants> {}
 
 function Badge({className, variant, ...props}: BadgeProps) {
     return <div className={cn(badgeVariants({variant}), className)} {...props} />;
