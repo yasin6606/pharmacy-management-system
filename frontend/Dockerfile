@@ -6,13 +6,9 @@ ARG NEXT_PUBLIC_API_URL=/api/v1
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY package.json package-lock.json* ./
-# next-intl peer range may lag Next 16 — allow legacy peer deps
-RUN if [ -f package-lock.json ]; then \
-      npm ci --legacy-peer-deps || (echo "lock out of sync — regenerating" && rm -f package-lock.json && npm install --legacy-peer-deps); \
-    else \
-      npm install --legacy-peer-deps; \
-    fi
+# next-intl peer range may lag Next 16 — legacy-peer-deps is required
+COPY package.json ./
+RUN npm install --legacy-peer-deps --no-audit --no-fund
 
 COPY . .
 RUN npm run build
@@ -32,7 +28,6 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN apk add --no-cache wget
 
 COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json* ./
 COPY --from=builder /app/next.config.js ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
