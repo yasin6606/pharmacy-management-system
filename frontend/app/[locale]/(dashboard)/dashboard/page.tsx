@@ -1,6 +1,6 @@
 'use client';
 import {useEffect, useState} from 'react';
-import {useTranslations} from 'next-intl';
+import {useTranslations, useLocale} from 'next-intl';
 import {useAuth} from '@/context/AuthContext';
 import {useApi} from '@/hooks/useAPI';
 import {useRole} from '@/hooks/useRole';
@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import {DrugBatch, LossReport, PaginatedResponse, Sale} from '@/types';
 import {cn} from '@/lib/utils';
+import {formatIRR} from '@/lib/currency';
 
 type CatalogStats = {totalDrugs: number; totalBatches: number; totalUnits: number};
 type SalesSummary = {totalRevenue: number; transactionCount: number};
@@ -27,6 +28,7 @@ type SalesSummary = {totalRevenue: number; transactionCount: number};
 export default function DashboardPage() {
     const t = useTranslations('dashboard');
     const commonT = useTranslations('common');
+    const locale = useLocale() as 'fa' | 'en';
     const {user} = useAuth();
     const {canAdjustStock} = useRole();
     const {get} = useApi();
@@ -49,11 +51,9 @@ export default function DashboardPage() {
             const branchId = user?.currentBranchId;
             const today = new Date().toISOString().split('T')[0];
 
-            // Catalog total — dedicated stats (not limited by page size)
             const catalog = await get<CatalogStats>('/inventory/catalog/stats');
             const totalDrugs = catalog?.totalDrugs ?? 0;
 
-            // Today's revenue — SQL SUM, not sum of a single page of rows
             const summary = await get<SalesSummary>('/sales/summary', {
                 params: {startDate: today, endDate: today},
             });
@@ -142,7 +142,7 @@ export default function DashboardPage() {
                 <StatsCard title={t('totalDrugs')} value={stats.totalDrugs} icon={<Package className="h-4 w-4" />} />
                 <StatsCard
                     title={t('todaySales')}
-                    value={`$${stats.todaySales.toFixed(2)}`}
+                    value={formatIRR(stats.todaySales, locale)}
                     subtitle={`${stats.todayTransactions} ${t('transactions')}`}
                     icon={<DollarSign className="h-4 w-4" />}
                     tone="success"
@@ -204,7 +204,7 @@ export default function DashboardPage() {
                                             </TableCell>
                                             <TableCell>{sale.quantity}</TableCell>
                                             <TableCell className="text-end font-semibold tabular-nums">
-                                                ${Number(sale.totalPrice).toFixed(2)}
+                                                {formatIRR(sale.totalPrice, locale)}
                                             </TableCell>
                                         </TableRow>
                                     ))}
