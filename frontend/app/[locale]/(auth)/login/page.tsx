@@ -1,3 +1,5 @@
+'use client';
+
 import { LoginForm } from '@/components/forms/LoginForm';
 import { Link } from '@/navigation';
 import { useTranslations } from 'next-intl';
