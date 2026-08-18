@@ -12,6 +12,7 @@ import {PurchaseOrder} from '../../modules/purchasing/entities/PurchaseOrder';
 import {LossReport} from '../../modules/loss-reports/entities/LossReport';
 import {EmployeeBranchHistory} from '../../modules/employees/entities/EmployeeBranchHistory';
 import {Settings} from '../../modules/settings/entities/Settings';
+import {IntegrationSetting} from '../../modules/settings/entities/IntegrationSetting';
 
 const shouldSynchronize =
     env.TYPEORM_SYNCHRONIZE === 'true' ||
@@ -22,7 +23,6 @@ export const AppDataSource = new DataSource({
     username: env.DATABASE_USERNAME,
     password: env.DATABASE_PASSWORD,
     url: env.DATABASE_URL,
-    // Prefer explicit TYPEORM_SYNCHRONIZE; fall back to development-only auto-sync
     synchronize: shouldSynchronize,
     logging: env.NODE_ENV === 'development',
     entities: [
@@ -38,6 +38,7 @@ export const AppDataSource = new DataSource({
         LossReport,
         EmployeeBranchHistory,
         Settings,
+        IntegrationSetting,
     ],
     migrations: [],
     subscribers: [],
