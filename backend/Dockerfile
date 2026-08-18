@@ -2,7 +2,6 @@
 FROM node:22.14-alpine AS builder
 WORKDIR /app
 
-# Install all deps (including webpack/typescript) to compile the API
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 
@@ -16,22 +15,23 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Production deps only (no webpack / jest)
+# wget used by HEALTHCHECK
+RUN apk add --no-cache wget
+
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
     && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
 
-# Non-root user for defense in depth
 RUN addgroup -S app && adduser -S app -G app \
     && chown -R app:app /app
 USER app
 
 EXPOSE 3001
 
-# Env vars come from Compose / orchestrator — no .env file required in the image
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD wget -qO- http://127.0.0.1:3001/health || exit 1
 
+# Configuration is injected by Compose / k8s — no .env file baked into the image
 CMD ["node", "dist/server.js"]
