@@ -1,14 +1,15 @@
 import {AppDataSource} from '../../core/config/database';
-import {SaleTransaction} from './entities/SaleTransaction';
+import {SaleTransaction, InsuranceProvider} from './entities/SaleTransaction';
 import {DrugBatch} from '../inventory/entities/DrugBatch';
+import {Drug} from '../inventory/entities/Drug';
 import {AppError} from '../../core/errors/AppError';
 import {StockMovement, MovementType} from '../inventory/entities/StockMovement';
 import {Settings} from '../settings/entities/Settings';
 import {v4 as uuidv4} from 'uuid';
 import {paginate} from '../../core/utils/pagination';
 import {Branch} from '../branches/entities/Branch';
+import {SettingsService} from '../settings/settings.service';
 
-/** Normalize YYYY-MM-DD (or ISO) into inclusive day bounds for timestamp columns. */
 function dayBounds(startDate?: string, endDate?: string): {from?: Date; to?: Date} {
     const out: {from?: Date; to?: Date} = {};
     if (startDate) {
@@ -28,25 +29,45 @@ function dayBounds(startDate?: string, endDate?: string): {from?: Date; to?: Dat
     return out;
 }
 
+export type SalePaymentInput = {
+    method: 'cash' | 'transfer' | 'pos' | 'credit';
+    customerName?: string;
+    customerFamily?: string;
+    customerPhone?: string;
+    posReference?: string;
+    /** When set and not 'none', eligible lines get insurer share */
+    insuranceProvider?: InsuranceProvider;
+    insuranceMemberId?: string;
+};
+
 export class SalesService {
     private saleRepo = AppDataSource.getRepository(SaleTransaction);
     private batchRepo = AppDataSource.getRepository(DrugBatch);
     private movementRepo = AppDataSource.getRepository(StockMovement);
+    private settingsService = new SettingsService();
 
     async recordBatchSale(
         items: {drugBatchId: string; quantity: number; prescriptionRef?: string}[],
         employeeId: string,
         branchId: string,
-        payment: {
-            method: 'cash' | 'transfer' | 'pos' | 'credit';
-            customerName?: string;
-            customerFamily?: string;
-            customerPhone?: string;
-            posReference?: string;
-        } = {method: 'cash'}
+        payment: SalePaymentInput = {method: 'cash'}
     ) {
         if (!branchId) throw new AppError('No branch assigned', 400);
         if (!items?.length) throw new AppError('Sale must contain at least one item', 400);
+
+        const insuranceProvider: InsuranceProvider =
+            payment.insuranceProvider && payment.insuranceProvider !== 'none'
+                ? payment.insuranceProvider
+                : 'none';
+
+        if (insuranceProvider !== 'none' && !payment.insuranceMemberId?.trim()) {
+            throw new AppError('Insurance member ID is required when applying insurance', 400);
+        }
+
+        const coveragePercent =
+            insuranceProvider === 'none'
+                ? 0
+                : await this.settingsService.getDefaultInsuranceCoveragePercent();
 
         return AppDataSource.transaction(async (manager) => {
             const franchiseSetting = await manager.findOne(Settings, {
@@ -63,6 +84,8 @@ export class SalesService {
             const basketId = uuidv4();
             let firstSaleId: string | null = null;
             let saleIndex = 0;
+            let basketInsuranceCoverage = 0;
+            let basketPatientShare = 0;
 
             for (const item of items) {
                 if (item.quantity <= 0) {
@@ -86,14 +109,31 @@ export class SalesService {
                     throw new AppError(`Batch ${item.drugBatchId} does not belong to your branch`, 400);
                 }
 
+                const drug = await manager.findOne(Drug, {
+                    where: {id: batch.drugId},
+                    select: ['id', 'insuranceEligible', 'name'],
+                });
+
                 await manager.decrement(DrugBatch, {id: item.drugBatchId}, 'count', item.quantity);
 
-                const unitPrice = Number(batch.sellingPrice ?? 0);
+                const unitPrice = Math.round(Number(batch.sellingPrice ?? 0));
+                const lineTotal = unitPrice * item.quantity;
+
+                // Professional rule: only formulary/eligible drugs share with insurer
+                const eligible = Boolean(drug?.insuranceEligible) && insuranceProvider !== 'none';
+                const insuranceCoverageAmount = eligible
+                    ? Math.round((lineTotal * coveragePercent) / 100)
+                    : 0;
+                const patientShareAmount = lineTotal - insuranceCoverageAmount;
+
+                basketInsuranceCoverage += insuranceCoverageAmount;
+                basketPatientShare += patientShareAmount;
+
                 const saleInsert = await manager.insert(SaleTransaction, {
                     drugBatchId: item.drugBatchId,
                     quantity: item.quantity,
                     unitPrice,
-                    totalPrice: unitPrice * item.quantity,
+                    totalPrice: lineTotal,
                     employeeId,
                     branchId,
                     isOfferSale: batch.isOffer,
@@ -106,6 +146,10 @@ export class SalesService {
                     customerPhone: payment.customerPhone || undefined,
                     posReference: payment.posReference || undefined,
                     isPaid: payment.method !== 'credit',
+                    insuranceProvider: eligible ? insuranceProvider : 'none',
+                    insuranceMemberId: eligible ? payment.insuranceMemberId!.trim() : null,
+                    insuranceCoverageAmount,
+                    patientShareAmount,
                 });
 
                 await manager.insert(StockMovement, {
@@ -124,10 +168,20 @@ export class SalesService {
             }
 
             if (firstSaleId && applyFranchise && franchiseAmount > 0) {
-                await manager.update(SaleTransaction, {id: firstSaleId}, {franchiseFee: franchiseAmount});
+                await manager.update(SaleTransaction, {id: firstSaleId}, {
+                    franchiseFee: Math.round(franchiseAmount),
+                });
+                basketPatientShare += Math.round(franchiseAmount);
             }
 
-            return true;
+            return {
+                basketId,
+                currency: 'IRR',
+                insuranceProvider,
+                insuranceCoverageAmount: basketInsuranceCoverage,
+                patientShareAmount: basketPatientShare,
+                coveragePercent: eligibleCoverageNote(coveragePercent, insuranceProvider),
+            };
         });
     }
 
@@ -198,10 +252,6 @@ export class SalesService {
         });
     }
 
-    /**
-     * Aggregate revenue + line count for a date range (full calendar days).
-     * Used by the dashboard so totals are not limited by page size.
-     */
     async getSalesSummary(filters: {
         branchId?: string;
         employeeId?: string;
@@ -219,6 +269,7 @@ export class SalesService {
         return {
             totalRevenue: Number(raw?.totalRevenue ?? 0),
             transactionCount: parseInt(String(raw?.transactionCount ?? '0'), 10) || 0,
+            currency: 'IRR',
         };
     }
 
@@ -235,4 +286,8 @@ export class SalesService {
             return true;
         });
     }
+}
+
+function eligibleCoverageNote(percent: number, provider: InsuranceProvider) {
+    return provider === 'none' ? 0 : percent;
 }
