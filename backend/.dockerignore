@@ -1,3 +1,11 @@
+node_modules
 dist
-package-lock.json
+build
+coverage
+tests
 *.log
+.env
+.env.*
+.git
+error.log
+combined.log
