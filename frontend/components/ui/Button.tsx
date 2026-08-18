@@ -4,8 +4,8 @@ import {cn} from '@/lib/utils';
 
 const buttonVariants = cva(
     [
-        'inline-flex items-center justify-center gap-2 rounded-lg text-sm font-semibold',
-        'transition-all duration-200',
+        'inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold',
+        'transition-[background,box-shadow,transform,opacity] duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2',
         'focus-visible:ring-offset-[var(--color-background)]',
         'disabled:pointer-events-none disabled:opacity-50',
@@ -16,28 +16,33 @@ const buttonVariants = cva(
             variant: {
                 default: [
                     'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]',
-                    'hover:brightness-110 shadow-sm',
+                    'shadow-sm hover:brightness-110',
                     'border border-transparent',
                 ].join(' '),
                 outline: [
-                    'border border-[var(--color-border)] bg-[var(--color-card)]',
+                    'border border-[var(--color-border)]',
+                    'bg-[color-mix(in_oklab,var(--color-card)_70%,transparent)]',
+                    'backdrop-blur-md',
                     'text-[var(--color-foreground)]',
-                    'hover:border-[var(--color-accent)] hover:bg-[var(--color-secondary)]',
+                    'hover:bg-[var(--color-secondary)] hover:border-[var(--color-primary)]/30',
                 ].join(' '),
-                ghost: 'hover:bg-[var(--color-secondary)] text-[var(--color-foreground)]',
+                ghost: [
+                    'text-[var(--color-foreground)]',
+                    'hover:bg-[var(--color-secondary)]',
+                ].join(' '),
                 danger: [
                     'bg-[var(--color-destructive)] text-[var(--color-destructive-foreground)]',
-                    'hover:brightness-110 shadow-sm',
+                    'shadow-sm hover:brightness-110',
                 ].join(' '),
                 accent: [
                     'bg-[var(--color-accent)] text-[var(--color-accent-foreground)]',
-                    'hover:brightness-105 shadow-sm font-bold',
+                    'shadow-sm hover:brightness-105',
                 ].join(' '),
             },
             size: {
                 default: 'h-10 px-4 py-2',
-                sm: 'h-8 px-3 text-xs',
-                lg: 'h-12 px-6 text-base',
+                sm: 'h-8 px-3 text-xs rounded-lg',
+                lg: 'h-11 px-6 text-base',
                 icon: 'h-10 w-10',
             },
         },
