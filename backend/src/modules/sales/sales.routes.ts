@@ -12,10 +12,15 @@ const controller = new SalesController(service);
 
 router.use(authMiddleware);
 
-/** List / filter sales (all operational roles) */
-router.get('/', requireRole('manager', 'accountant', 'senior', 'junior'), controller.getSales);
+const ops = requireRole('manager', 'accountant', 'senior', 'junior');
 
-/** Record a multi-item basket sale (atomic stock decrement) */
+/** Aggregate totals (must be registered before /:id-style routes) */
+router.get('/summary', ops, controller.getSalesSummary);
+
+/** List / filter sales */
+router.get('/', ops, controller.getSales);
+
+/** Record a multi-item basket sale */
 router.post('/batch', requireRole('junior', 'senior', 'manager', 'accountant'), controller.batchSale);
 
 /** Mark a credit basket as paid */
