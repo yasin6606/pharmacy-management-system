@@ -16,7 +16,7 @@ import {
     X,
     ClipboardList,
     CreditCard,
-    Cross,
+    Pill,
 } from 'lucide-react';
 import {useAuth} from '@/context/AuthContext';
 import {ThemeToggle} from './ThemeToggle';
@@ -67,7 +67,7 @@ export function Sidebar() {
             <div className="p-4 border-b border-[var(--color-border)]">
                 <div className="flex items-center gap-3">
                     <span className="glass-chip text-[var(--color-primary)]">
-                        <Cross className="h-4 w-4" aria-hidden />
+                        <Pill className="h-4 w-4" aria-hidden />
                     </span>
                     <div className="min-w-0">
                         <h1 className="page-title text-sm sm:text-base text-[var(--color-foreground)] leading-tight truncate">
@@ -82,7 +82,6 @@ export function Sidebar() {
                     <p className="text-xs font-medium text-[var(--color-foreground)] truncate">{user?.fullName}</p>
                     <p className="text-[11px] text-[var(--color-muted-foreground)] truncate">
                         {user?.role ? roleT(user.role) : ''}
-                        {user?.currentBranchId ? ' · branch assigned' : ''}
                     </p>
                 </div>
             </div>
