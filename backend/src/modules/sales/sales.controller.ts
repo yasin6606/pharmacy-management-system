@@ -8,7 +8,7 @@ export class SalesController {
     batchSale = asyncHandler(async (req: Request, res: Response) => {
         const {items, payment} = req.body;
 
-        const result: boolean = await this.salesService.recordBatchSale(
+        const result: any = await this.salesService.recordBatchSale(
             items,
             req.user.userId,
             req.user.branchId,
