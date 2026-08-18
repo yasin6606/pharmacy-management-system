@@ -8,26 +8,31 @@ import {v4 as uuidv4} from 'uuid';
 import {paginate} from '../../core/utils/pagination';
 import {Branch} from '../branches/entities/Branch';
 
-/**
- * Sales domain service.
- *
- * `recordBatchSale` is the critical path: it decrements stock and writes
- * sale + movement rows inside a single DB transaction with pessimistic locks
- * to prevent overselling under concurrent cashiers.
- */
+/** Normalize YYYY-MM-DD (or ISO) into inclusive day bounds for timestamp columns. */
+function dayBounds(startDate?: string, endDate?: string): {from?: Date; to?: Date} {
+    const out: {from?: Date; to?: Date} = {};
+    if (startDate) {
+        const d = new Date(startDate);
+        if (!Number.isNaN(d.getTime())) {
+            d.setHours(0, 0, 0, 0);
+            out.from = d;
+        }
+    }
+    if (endDate) {
+        const d = new Date(endDate);
+        if (!Number.isNaN(d.getTime())) {
+            d.setHours(23, 59, 59, 999);
+            out.to = d;
+        }
+    }
+    return out;
+}
+
 export class SalesService {
     private saleRepo = AppDataSource.getRepository(SaleTransaction);
     private batchRepo = AppDataSource.getRepository(DrugBatch);
     private movementRepo = AppDataSource.getRepository(StockMovement);
 
-    /**
-     * Record a multi-item basket sale.
-     *
-     * @param items - line items (batch + qty)
-     * @param employeeId - cashier performing the sale
-     * @param branchId - branch where stock is taken from
-     * @param payment - payment method + optional customer / POS metadata
-     */
     async recordBatchSale(
         items: {drugBatchId: string; quantity: number; prescriptionRef?: string}[],
         employeeId: string,
@@ -44,7 +49,6 @@ export class SalesService {
         if (!items?.length) throw new AppError('Sale must contain at least one item', 400);
 
         return AppDataSource.transaction(async (manager) => {
-            // Franchise fee is applied once per basket when the branch opts in
             const franchiseSetting = await manager.findOne(Settings, {
                 where: {key: 'franchise_amount'},
             });
@@ -65,7 +69,6 @@ export class SalesService {
                     throw new AppError('Quantity must be positive', 400);
                 }
 
-                // Lock the batch row so concurrent sales cannot oversell
                 const batch = await manager.findOne(DrugBatch, {
                     where: {id: item.drugBatchId},
                     select: ['id', 'count', 'branchId', 'drugId', 'sellingPrice', 'isOffer'],
@@ -96,13 +99,12 @@ export class SalesService {
                     isOfferSale: batch.isOffer,
                     prescriptionRef: item.prescriptionRef,
                     basketId,
-                    franchiseFee: 0, // may be set on the first line below
+                    franchiseFee: 0,
                     paymentMethod: payment.method,
                     customerName: payment.customerName || undefined,
                     customerFamily: payment.customerFamily || undefined,
                     customerPhone: payment.customerPhone || undefined,
                     posReference: payment.posReference || undefined,
-                    // Credit sales start unpaid; cash/transfer/pos are considered paid
                     isPaid: payment.method !== 'credit',
                 });
 
@@ -121,13 +123,41 @@ export class SalesService {
                 saleIndex++;
             }
 
-            // Attach franchise fee to the first line item only (one fee per basket)
             if (firstSaleId && applyFranchise && franchiseAmount > 0) {
                 await manager.update(SaleTransaction, {id: firstSaleId}, {franchiseFee: franchiseAmount});
             }
 
             return true;
         });
+    }
+
+    private applySaleFilters(
+        query: ReturnType<typeof this.saleRepo.createQueryBuilder>,
+        filters: {
+            branchId?: string;
+            employeeId?: string;
+            startDate?: string;
+            endDate?: string;
+            paymentMethod?: string;
+            search?: string;
+        }
+    ) {
+        const {from, to} = dayBounds(filters.startDate, filters.endDate);
+
+        if (filters.branchId) query.andWhere('sale.branchId = :branchId', {branchId: filters.branchId});
+        if (filters.employeeId) query.andWhere('sale.employeeId = :employeeId', {employeeId: filters.employeeId});
+        if (from) query.andWhere('sale.soldDate >= :from', {from});
+        if (to) query.andWhere('sale.soldDate <= :to', {to});
+        if (filters.paymentMethod) {
+            query.andWhere('sale.paymentMethod = :paymentMethod', {paymentMethod: filters.paymentMethod});
+        }
+        if (filters.search) {
+            query.andWhere(
+                '(sale.customerName ILIKE :search OR sale.customerFamily ILIKE :search OR sale.customerPhone ILIKE :search)',
+                {search: `%${filters.search}%`}
+            );
+        }
+        return query;
     }
 
     async getSales(filters: any) {
@@ -138,11 +168,7 @@ export class SalesService {
             .leftJoinAndSelect('sale.employee', 'employee')
             .leftJoinAndSelect('sale.branch', 'branch');
 
-        if (filters.branchId) query.andWhere('sale.branchId = :branchId', {branchId: filters.branchId});
-        if (filters.employeeId) query.andWhere('sale.employeeId = :employeeId', {employeeId: filters.employeeId});
-        if (filters.startDate) query.andWhere('sale.soldDate >= :startDate', {startDate: filters.startDate});
-        if (filters.endDate) query.andWhere('sale.soldDate <= :endDate', {endDate: filters.endDate});
-
+        this.applySaleFilters(query, filters);
         return query.orderBy('sale.soldDate', 'DESC').getMany();
     }
 
@@ -164,19 +190,7 @@ export class SalesService {
             .leftJoinAndSelect('sale.employee', 'employee')
             .leftJoinAndSelect('sale.branch', 'branch');
 
-        if (filters.branchId) query.andWhere('sale.branchId = :branchId', {branchId: filters.branchId});
-        if (filters.employeeId) query.andWhere('sale.employeeId = :employeeId', {employeeId: filters.employeeId});
-        if (filters.startDate) query.andWhere('sale.soldDate >= :startDate', {startDate: filters.startDate});
-        if (filters.endDate) query.andWhere('sale.soldDate <= :endDate', {endDate: filters.endDate});
-        if (filters.paymentMethod) {
-            query.andWhere('sale.paymentMethod = :paymentMethod', {paymentMethod: filters.paymentMethod});
-        }
-        if (filters.search) {
-            query.andWhere(
-                '(sale.customerName ILIKE :search OR sale.customerFamily ILIKE :search OR sale.customerPhone ILIKE :search)',
-                {search: `%${filters.search}%`}
-            );
-        }
+        this.applySaleFilters(query, filters);
 
         return paginate(query.orderBy('sale.soldDate', 'DESC'), {
             page: pagination.page || 1,
@@ -184,7 +198,30 @@ export class SalesService {
         });
     }
 
-    /** Mark all credit lines in a basket as paid (same branch only). */
+    /**
+     * Aggregate revenue + line count for a date range (full calendar days).
+     * Used by the dashboard so totals are not limited by page size.
+     */
+    async getSalesSummary(filters: {
+        branchId?: string;
+        employeeId?: string;
+        startDate?: string;
+        endDate?: string;
+    }) {
+        const query = this.saleRepo
+            .createQueryBuilder('sale')
+            .select('COALESCE(SUM(sale.totalPrice), 0)', 'totalRevenue')
+            .addSelect('COUNT(sale.id)', 'transactionCount');
+
+        this.applySaleFilters(query, filters);
+
+        const raw = await query.getRawOne<{totalRevenue: string; transactionCount: string}>();
+        return {
+            totalRevenue: Number(raw?.totalRevenue ?? 0),
+            transactionCount: parseInt(String(raw?.transactionCount ?? '0'), 10) || 0,
+        };
+    }
+
     async markBasketAsPaid(basketId: string, branchId: string) {
         return AppDataSource.transaction(async (manager) => {
             const result = await manager.update(
