@@ -15,10 +15,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         return (
             <div className="space-y-1.5">
                 {label && (
-                    <label
-                        htmlFor={inputId}
-                        className="text-sm font-medium text-[var(--color-foreground)]"
-                    >
+                    <label htmlFor={inputId} className="text-sm font-medium text-[var(--color-foreground)]">
                         {label}
                     </label>
                 )}
@@ -27,8 +24,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                     type={type}
                     ref={ref}
                     className={cn(
-                        'flex h-10 w-full rounded-lg border border-[var(--color-input)]',
-                        'bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)]',
+                        'flex h-10 w-full rounded-xl border border-[var(--color-input)]',
+                        'bg-[color-mix(in_oklab,var(--color-card)_80%,transparent)]',
+                        'backdrop-blur-sm',
+                        'px-3 py-2 text-sm text-[var(--color-foreground)]',
                         'placeholder:text-[var(--color-muted-foreground)]',
                         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2',
                         'focus-visible:ring-offset-[var(--color-background)]',
