@@ -7,7 +7,12 @@ ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+# next-intl peer range may lag Next 16 — allow legacy peer deps
+RUN if [ -f package-lock.json ]; then \
+      npm ci --legacy-peer-deps || (echo "lock out of sync — regenerating" && rm -f package-lock.json && npm install --legacy-peer-deps); \
+    else \
+      npm install --legacy-peer-deps; \
+    fi
 
 COPY . .
 RUN npm run build
