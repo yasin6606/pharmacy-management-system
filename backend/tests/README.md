@@ -1,6 +1,6 @@
-# Backend tests
+# Backend & project tests
 
-## Run
+## Backend
 
 ```bash
 cd backend
@@ -8,19 +8,49 @@ npm install
 npm test
 ```
 
-## Coverage areas
+### Suites
 
-| Suite | What it guards |
-|-------|----------------|
-| `rateLimit.test.ts` | Fixed-window counting + 429 after max |
-| `sales.service.test.ts` | Basket sale validation, stock checks, decrement path |
-| `inventory.transfer.test.ts` | Inter-branch transfer validation & movement |
-| `appError.test.ts` | Operational error shape |
+| File | Module |
+|------|--------|
+| `appError.test.ts` | AppError |
+| `asyncHandler.test.ts` | asyncHandler |
+| `auth.middleware.test.ts` | JWT auth middleware |
+| `auth.service.test.ts` | AuthService (login/logout/profile) |
+| `auth.dto.test.ts` | login Zod schema |
+| `branches.service.test.ts` | BranchesService |
+| `employees.service.test.ts` | EmployeesService |
+| `errorHandler.test.ts` | Global Express error handler |
+| `inventory.expiring.test.ts` | getExpiringBatches |
+| `inventory.transfer.test.ts` | transferStock |
+| `jwt.test.ts` | sign/verify tokens |
+| `loss-reports.service.test.ts` | Loss report review workflow |
+| `pagination.test.ts` | paginate helper |
+| `rateLimit.test.ts` | Rate limit store + middleware |
+| `rbac.middleware.test.ts` | requireRole |
+| `sales.service.test.ts` | recordBatchSale |
+| `settings.service.test.ts` | Franchise settings |
+| `setup.service.test.ts` | First-manager bootstrap |
+| `validation.middleware.test.ts` | Zod validate middleware |
 
-Tests **mock** TypeORM transactions — no PostgreSQL required.
+All service tests **mock** TypeORM — no Postgres required.
 
-## Redis rate limiting (optional)
+## Frontend
 
-Set `REDIS_URL` in the environment (e.g. `redis://localhost:6379`).
-The rate limiter auto-selects `RedisRateLimitStore` so multiple API instances share login counters.
-If Redis is unreachable, the middleware **fails open** (allows the request) and logs a warning.
+```bash
+cd frontend
+npm install
+npm test
+```
+
+| File | Covers |
+|------|--------|
+| `__tests__/utils.test.ts` | `cn()` |
+| `__tests__/useRole.test.tsx` | RBAC capability flags |
+| `__tests__/ErrorContext.test.tsx` | Error toast state |
+| `__tests__/apiError.test.ts` | ApiError |
+| `__tests__/navigation.test.ts` | locales config |
+
+## Redis rate limiting
+
+Set `REDIS_URL` (e.g. `redis://localhost:6379`) for multi-instance shared counters.
+Without it, the in-memory store is used automatically.
