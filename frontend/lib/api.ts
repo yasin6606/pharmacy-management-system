@@ -1,8 +1,5 @@
 import axios from 'axios';
 
-// const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend:3001/api/v1';
-// const API_URL = 'http://backend:3001/api/v1';
-
 let API_URL: string = "";
 
 if (process.env.NODE_ENV === "production")
@@ -35,6 +32,19 @@ export const api = axios.create({
     withCredentials: false,
     headers: {'Content-Type': 'application/json'},
 });
+
+// ---------- Helpers ----------
+function getLocaleFromPath(): string {
+    if (typeof window === 'undefined') return 'en';
+    const segments = window.location.pathname.split('/').filter(Boolean);
+    const first = segments[0];
+    return first === 'fa' || first === 'en' ? first : 'en';
+}
+
+function redirectToLogin() {
+    const locale = getLocaleFromPath();
+    window.location.replace(`/${locale}/login`);
+}
 
 // ---------- Interceptors ----------
 api.interceptors.request.use((config) => {
@@ -69,7 +79,7 @@ api.interceptors.response.use(
             if (!isRedirecting) {
                 isRedirecting = true;
                 sessionStorage.removeItem('token');
-                window.location.replace('/login');
+                redirectToLogin();
             }
         }
 
