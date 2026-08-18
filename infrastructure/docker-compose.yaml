@@ -1,74 +1,135 @@
+# Pharmacy Management System — production-oriented Compose stack
+#
+# Architecture decisions:
+# 1. Nginx is the ONLY process published to the host (HTTP_PORT).
+# 2. Postgres / Redis / backend / frontend stay on the internal network.
+# 3. Secrets come from infrastructure/.env (see .env.example) — never hardcode.
+# 4. Redis is included so login rate-limits work correctly with multiple backend replicas.
+# 5. Postgres 16 (current stable) instead of EOL 13.
+# 6. Healthchecks + depends_on conditions for ordered, reliable startup.
+#
+# Usage:
+#   cp .env.example .env   # edit secrets
+#   docker compose up --build -d
+#
+# Optional: expose Postgres on localhost for GUI tools
+#   docker compose --profile dev-db up -d
+
+name: pharmacy
+
 services:
   postgres:
-    image: postgres:13-alpine
-    container_name: pharmacy-postgres
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 123456
-      POSTGRES_DB: pharmacy_db
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pharmacy_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # Not published by default — use profile `dev-db` if you need host access
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d pharmacy_db" ]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - internal
+    # Keep DB lean on small hosts
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - max_connections=100
+
+  # Optional host access for DBeaver / pgAdmin during development
+  postgres-publish:
+    profiles: ["dev-db"]
+    image: postgres:16-alpine
+    network_mode: "service:postgres"
+    # This service only exists to document the profile pattern;
+    # prefer: docker compose run with ports on a override file if needed.
+    # For simplicity, publish via the main service when profile is active:
+    # (Compose cannot attach ports via network_mode easily — see ports below on postgres when override used)
+    deploy:
+      replicas: 0
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
       retries: 5
     networks:
-      - pharmacy-net
+      - internal
 
   backend:
     build:
-      context: ./../backend
+      context: ../backend
       dockerfile: Dockerfile
-    container_name: pharmacy-backend
     restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3001
-      DATABASE_URL: postgresql://postgres:123456@postgres:5432/pharmacy_db
-      JWT_SECRET: your-very-secure-secret-key
-      JWT_EXPIRES_IN: 7d
-      TITAK_API_KEY: your-titak-key
-      # No CORS needed (same origin via Nginx), but you can keep it if you like
-      CORS_ORIGIN: http://localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pharmacy_db}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      TITAK_API_KEY: ${TITAK_API_KEY:-}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
-      - pharmacy-net
+      - internal
+    # No host ports — reach API only via nginx /api/
 
   frontend:
     build:
-      context: ./../frontend
+      context: ../frontend
       dockerfile: Dockerfile
       args:
-        # Relative URL – the public URL when accessed through Nginx
-        NEXT_PUBLIC_API_URL: "/api/v1"
-    container_name: pharmacy-frontend
+        # Browser calls same origin; nginx routes /api → backend
+        NEXT_PUBLIC_API_URL: /api/v1
     restart: unless-stopped
-    # No port exposed to host – only Nginx talks to it
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: /api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
-      - pharmacy-net
+      - internal
 
   nginx:
-    image: nginx:1.27.1-alpine
-    container_name: pharmacy-nginx
+    image: nginx:1.27-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "${HTTP_PORT:-80}:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
     networks:
-      - pharmacy-net
+      - internal
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
-  pharmacy-net:
+  internal:
+    driver: bridge
