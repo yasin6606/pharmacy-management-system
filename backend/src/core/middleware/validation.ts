@@ -1,21 +1,28 @@
-import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
-import { AppError } from '../errors/AppError';
+import {Request, Response, NextFunction} from 'express';
+import {AnyZodObject, ZodError} from 'zod';
+import {AppError} from '../errors/AppError';
 
 export const validate = (schema: AnyZodObject) => {
     return (req: Request, res: Response, next: NextFunction) => {
         try {
-            schema.parse({
+            const parsed = schema.parse({
                 body: req.body,
                 query: req.query,
                 params: req.params,
             });
+
+            // Apply coerced/parsed values back so controllers get clean data
+            if (parsed.body) req.body = parsed.body;
+            if (parsed.query) req.query = parsed.query as any;
+            if (parsed.params) req.params = parsed.params as any;
+
             next();
         } catch (error) {
             if (error instanceof ZodError) {
-                throw new AppError(error.errors.map(e => e.message).join(', '), 400);
+                const message = error.errors.map((e) => e.message).join(', ');
+                return next(new AppError(message, 400));
             }
-            throw error;
+            next(error);
         }
     };
 };
