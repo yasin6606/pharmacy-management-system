@@ -3,7 +3,7 @@ import {createContext, useContext, useState, useEffect, ReactNode} from 'react';
 import {LoginResponse, User} from '@/types';
 import {useRouter} from '@/navigation';
 import {usePathname} from 'next/navigation';
-import {apiGet, apiPost} from '@/lib/api';   // ← direct imports, no useApi
+import {apiGet, apiPost} from '@/lib/api';
 
 interface AuthContextType {
     user: User | null;
@@ -13,6 +13,12 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function getLocaleFromPath(pathname: string): string {
+    const segments = pathname.split('/').filter(Boolean);
+    const first = segments[0];
+    return first === 'fa' || first === 'en' ? first : 'en';
+}
 
 export function AuthProvider({children}: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -30,7 +36,7 @@ export function AuthProvider({children}: { children: ReactNode }) {
                 return;
             }
             try {
-                const userData = await apiGet<User>('/auth/me');   // direct API call
+                const userData = await apiGet<User>('/auth/me');
                 if (userData && userData.id) {
                     setUser(userData);
                 } else {
@@ -47,7 +53,7 @@ export function AuthProvider({children}: { children: ReactNode }) {
         fetchUser();
     }, []);
 
-    // Redirect logic (unchanged)
+    // Redirect logic
     useEffect(() => {
         if (loading) return;
         const publicRoutes = ['/login', '/setup'];
@@ -79,8 +85,9 @@ export function AuthProvider({children}: { children: ReactNode }) {
         }
         sessionStorage.removeItem('token');
         setUser(null);
-        // Hard reload to avoid hook mismatch
-        window.location.replace('/login');
+        // Hard reload with correct locale to avoid hook mismatch
+        const locale = getLocaleFromPath(pathname);
+        window.location.replace(`/${locale}/login`);
     };
 
     return (
