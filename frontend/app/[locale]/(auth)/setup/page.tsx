@@ -9,7 +9,7 @@ import {Button} from '@/components/ui/Button';
 import {apiPost, ApiError} from '@/lib/api';
 import {useRouter} from '@/navigation';
 import {useState} from 'react';
-import {Cross} from 'lucide-react';
+import {Pill} from 'lucide-react';
 
 const schema = z.object({
     email: z.string().email(),
@@ -53,7 +53,7 @@ export default function SetupPage() {
             <div className="w-full max-w-md glass-strong rounded-2xl p-6 sm:p-8">
                 <div className="flex flex-col items-center text-center mb-6">
                     <span className="glass-chip text-[var(--color-accent)] mb-3">
-                        <Cross className="h-6 w-6" aria-hidden />
+                        <Pill className="h-6 w-6" aria-hidden />
                     </span>
                     <h1 className="page-title text-2xl sm:text-3xl text-[var(--color-foreground)]">{t('setup')}</h1>
                     <p className="text-sm text-[var(--color-muted-foreground)] mt-1">Create the first manager account</p>
