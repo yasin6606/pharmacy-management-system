@@ -2,13 +2,9 @@
 FROM node:22.14-alpine AS builder
 WORKDIR /app
 
-COPY package.json package-lock.json* ./
-# Prefer a clean install when the lockfile is valid; fall back if it is missing/out of sync
-RUN if [ -f package-lock.json ]; then \
-      npm ci || (echo "lock out of sync — regenerating" && rm -f package-lock.json && npm install); \
-    else \
-      npm install; \
-    fi
+# Install from package.json (do not require a perfect lockfile in the image build)
+COPY package.json ./
+RUN npm install --no-audit --no-fund
 
 COPY . .
 RUN npm run build
@@ -22,12 +18,8 @@ ENV PORT=3001
 
 RUN apk add --no-cache wget
 
-COPY package.json package-lock.json* ./
-RUN if [ -f package-lock.json ]; then \
-      npm ci --omit=dev || (rm -f package-lock.json && npm install --omit=dev); \
-    else \
-      npm install --omit=dev; \
-    fi \
+COPY package.json ./
+RUN npm install --omit=dev --no-audit --no-fund \
     && npm cache clean --force
 
 COPY --from=builder /app/dist ./dist
