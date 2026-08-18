@@ -9,7 +9,7 @@ import {Button} from '@/components/ui/Button';
 import {apiPost, ApiError} from '@/lib/api';
 import {useRouter} from '@/navigation';
 import {useState} from 'react';
-import {Sparkles} from 'lucide-react';
+import {Cross} from 'lucide-react';
 
 const schema = z.object({
     email: z.string().email(),
@@ -50,23 +50,19 @@ export default function SetupPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center px-4 py-10">
-            <div className="w-full max-w-md fantasy-panel rounded-2xl p-6 sm:p-8">
+            <div className="w-full max-w-md glass-strong rounded-2xl p-6 sm:p-8">
                 <div className="flex flex-col items-center text-center mb-6">
-                    <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--color-accent)] text-[var(--color-accent-foreground)] shadow-md mb-3">
-                        <Sparkles className="h-6 w-6" aria-hidden />
+                    <span className="glass-chip text-[var(--color-accent)] mb-3">
+                        <Cross className="h-6 w-6" aria-hidden />
                     </span>
-                    <h1 className="fantasy-title text-2xl sm:text-3xl font-bold text-[var(--color-foreground)]">
-                        {t('setup')}
-                    </h1>
-                    <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
-                        Arcane Apothecary · first steward
-                    </p>
-                    <div className="fantasy-ornament w-24 mt-4" aria-hidden />
+                    <h1 className="page-title text-2xl sm:text-3xl text-[var(--color-foreground)]">{t('setup')}</h1>
+                    <p className="text-sm text-[var(--color-muted-foreground)] mt-1">Create the first manager account</p>
+                    <div className="glass-divider w-20 mt-4" aria-hidden />
                 </div>
 
                 {error && (
                     <div
-                        className="bg-red-50 dark:bg-red-950/40 text-[var(--color-destructive)] p-3 rounded-lg mb-4 text-sm"
+                        className="bg-red-500/10 border border-red-500/25 text-[var(--color-destructive)] p-3 rounded-xl mb-4 text-sm"
                         role="alert"
                     >
                         {error}
@@ -89,7 +85,7 @@ export default function SetupPage() {
                         {...register('password')}
                         error={errors.password?.message}
                     />
-                    <Button type="submit" variant="accent" className="w-full" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full" disabled={isSubmitting}>
                         {isSubmitting ? commonT('loading') : t('createManager')}
                     </Button>
                 </form>
