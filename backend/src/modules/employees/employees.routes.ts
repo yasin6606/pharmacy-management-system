@@ -1,15 +1,18 @@
-import { Router } from 'express';
-import { EmployeesService } from './employees.service';
-import { EmployeesController } from './employees.controller';
-import { authMiddleware } from '../../core/middleware/auth';
-import { requireRole } from '../../core/middleware/rbac';
-import { validate } from '../../core/middleware/validation';
-import { createEmployeeSchema, updateEmployeeSchema } from './dto/employee.dto';
+import {Router} from 'express';
+import {EmployeesService} from './employees.service';
+import {EmployeesController} from './employees.controller';
+import {authMiddleware} from '../../core/middleware/auth';
+import {requireRole} from '../../core/middleware/rbac';
+import {validate} from '../../core/middleware/validation';
+import {createEmployeeSchema, updateEmployeeSchema} from './dto/employee.dto';
+import container from '../../container';
 
 const router = Router();
-const service = new EmployeesService();
+
+const service = container.resolve<EmployeesService>('employeesService');
 const controller = new EmployeesController(service);
 
+// All employee endpoints require authentication
 router.use(authMiddleware);
 
 router.get('/', requireRole('manager', 'accountant'), controller.getAll);
