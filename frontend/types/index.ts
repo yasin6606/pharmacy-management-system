@@ -39,7 +39,7 @@ export type EmployeeBranchHistory = {
 export type EmployeeResponse = {
     success: boolean;
     data: User[];
-}
+};
 
 // ====================== Inventory ======================
 
@@ -54,14 +54,14 @@ export type DrugBatch = {
     purchasePrice?: number | null;
     sellingPrice?: number | null;
     version: number;
-    drug?: Drug;          // nested drug object
-    branch?: Branch;      // sometimes included
-}
+    drug?: Drug;
+    branch?: Branch;
+};
 
 export type BranchInventoryResponse = {
     success: boolean;
     data: DrugBatch[];
-}
+};
 
 export type Drug = {
     id: string;
@@ -70,6 +70,9 @@ export type Drug = {
     company: string;
     enteringDate: string;
     lastPriceUpdateDate: string | null;
+    titakCode?: string | null;
+    insuranceEligible?: boolean;
+    insuranceCode?: string | null;
     batches?: DrugBatch[];
 };
 
@@ -113,12 +116,16 @@ export type Sale = {
     customerPhone?: string | null;
     posReference?: string | null;
     isPaid?: boolean;
+    insuranceProvider?: 'none' | 'tamin' | 'salamat' | 'mosalah' | 'other';
+    insuranceMemberId?: string | null;
+    insuranceCoverageAmount?: number;
+    patientShareAmount?: number;
 };
 
 export type SaleResponse = {
     success: boolean;
     data: Sale[];
-}
+};
 
 // ====================== Purchasing ======================
 
@@ -134,7 +141,7 @@ export type PurchaseOrder = {
     branchId: string;
     createdById: string;
     createdAt: string;
-    items: any; // Could be further typed as array of { drugId, quantity, price }
+    items: any;
     invoiceImageUrl: string | null;
     supplier?: Supplier;
     branch?: Branch;
@@ -158,14 +165,13 @@ export type LossReport = {
     branch?: Branch;
     drug?: Drug;
     reviewedBy?: User;
-    availableStock?: number;  // current stock in the branch for this drug
+    availableStock?: number;
 };
 
 export type LossReportResponse = {
     success: boolean;
     data: LossReport[];
-}
-// ====================== Notifications / Alerts ======================
+};
 
 export type Notification = {
     id: string;
@@ -177,8 +183,6 @@ export type Notification = {
     createdAt: string;
     data?: any;
 };
-
-// ====================== Reports / Aggregated ======================
 
 export type SalesReportItem = {
     date: string;
@@ -197,8 +201,6 @@ export type InventorySummary = {
     totalValue: number;
 };
 
-// ====================== API Response Wrapper ======================
-
 export type ApiResponse<T> = {
     success: boolean;
     data: T;
@@ -210,8 +212,6 @@ export type ApiError = {
     message: string;
     statusCode: number;
 };
-
-// ====================== Auth ======================
 
 export type LoginRequest = {
     email: string;
@@ -234,8 +234,6 @@ export type SetupResponse = {
     email: string;
 };
 
-// ====================== Form Input Types ======================
-
 export type CreateEmployeeInput = {
     email: string;
     password: string;
@@ -257,6 +255,9 @@ export type CreateDrugInput = {
     brand?: string;
     company: string;
     enteringDate: string;
+    titakCode?: string;
+    insuranceEligible?: boolean;
+    insuranceCode?: string;
 };
 
 export type AddBatchInput = {
@@ -292,8 +293,6 @@ export type ReviewLossReportInput = {
     status: 'approved' | 'rejected';
 };
 
-// ====================== Query Filters ======================
-
 export type SalesFilter = {
     branchId?: string;
     employeeId?: string;
@@ -312,8 +311,6 @@ export type LossReportFilter = {
     branchId?: string;
     status?: LossReport['status'];
 };
-
-// ====================== Pagination ======================
 
 export type PaginatedResponse<T> = {
     items: T[];
