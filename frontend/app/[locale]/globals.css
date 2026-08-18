@@ -1,71 +1,80 @@
 @import 'tailwindcss';
 
 /*
- * Fantasy Pharmacy theme
- * Warm parchment light mode + deep emerald/indigo night mode.
- * Primary accent: apothecary gold. Keep contrast strong for readability.
+ * Professional glass UI — pharmacy operations
+ * - High readability (solid text on frosted surfaces)
+ * - Practical density for POS / inventory workflows
+ * - Glass panels via backdrop-filter + translucent fills
  */
 
 @theme {
-    --color-background: hsl(40 33% 96%);
-    --color-foreground: hsl(160 25% 12%);
-    --color-card: hsl(42 40% 98%);
-    --color-card-foreground: hsl(160 25% 12%);
-    --color-primary: hsl(158 45% 28%);
-    --color-primary-foreground: hsl(42 50% 96%);
-    --color-secondary: hsl(38 30% 90%);
-    --color-secondary-foreground: hsl(160 25% 18%);
-    --color-muted: hsl(40 20% 92%);
-    --color-muted-foreground: hsl(160 10% 38%);
-    --color-accent: hsl(38 55% 48%);
-    --color-accent-foreground: hsl(40 40% 12%);
-    --color-border: hsl(38 22% 82%);
-    --color-input: hsl(38 22% 86%);
-    --color-ring: hsl(158 45% 32%);
-    --color-destructive: hsl(0 65% 42%);
+    --color-background: hsl(210 40% 96%);
+    --color-foreground: hsl(222 30% 12%);
+    --color-card: hsl(0 0% 100% / 0.72);
+    --color-card-foreground: hsl(222 30% 12%);
+    --color-primary: hsl(173 55% 28%);
+    --color-primary-foreground: hsl(0 0% 100%);
+    --color-secondary: hsl(210 30% 94% / 0.85);
+    --color-secondary-foreground: hsl(222 25% 18%);
+    --color-muted: hsl(210 25% 93% / 0.9);
+    --color-muted-foreground: hsl(215 14% 40%);
+    --color-accent: hsl(199 70% 42%);
+    --color-accent-foreground: hsl(0 0% 100%);
+    --color-border: hsl(214 25% 80% / 0.65);
+    --color-input: hsl(214 25% 88% / 0.8);
+    --color-ring: hsl(173 55% 32%);
+    --color-destructive: hsl(0 72% 45%);
     --color-destructive-foreground: hsl(0 0% 100%);
-    --radius: 0.75rem;
+    --radius: 0.875rem;
 
-    --font-display: 'Segoe UI', Georgia, 'Times New Roman', serif;
+    --glass-blur: 16px;
+    --glass-saturate: 1.35;
+    --glass-border: hsl(0 0% 100% / 0.45);
+    --glass-highlight: hsl(0 0% 100% / 0.55);
+
+    --font-display: 'Segoe UI', system-ui, -apple-system, sans-serif;
     --font-sans: 'Segoe UI', Tahoma, 'Vazirmatn', system-ui, -apple-system, sans-serif;
 }
 
 .dark {
-    --color-background: hsl(168 28% 8%);
-    --color-foreground: hsl(42 30% 92%);
-    --color-card: hsl(168 24% 11%);
-    --color-card-foreground: hsl(42 30% 92%);
-    --color-primary: hsl(158 42% 42%);
+    --color-background: hsl(222 28% 9%);
+    --color-foreground: hsl(210 30% 96%);
+    --color-card: hsl(222 24% 14% / 0.55);
+    --color-card-foreground: hsl(210 30% 96%);
+    --color-primary: hsl(173 50% 42%);
     --color-primary-foreground: hsl(160 30% 8%);
-    --color-secondary: hsl(168 20% 16%);
-    --color-secondary-foreground: hsl(42 25% 90%);
-    --color-muted: hsl(168 18% 14%);
-    --color-muted-foreground: hsl(160 12% 62%);
-    --color-accent: hsl(38 60% 52%);
-    --color-accent-foreground: hsl(168 30% 8%);
-    --color-border: hsl(168 16% 20%);
-    --color-input: hsl(168 16% 22%);
-    --color-ring: hsl(158 42% 48%);
-    --color-destructive: hsl(0 62% 48%);
+    --color-secondary: hsl(222 20% 18% / 0.7);
+    --color-secondary-foreground: hsl(210 25% 92%);
+    --color-muted: hsl(222 18% 16% / 0.8);
+    --color-muted-foreground: hsl(215 12% 65%);
+    --color-accent: hsl(199 65% 52%);
+    --color-accent-foreground: hsl(222 30% 8%);
+    --color-border: hsl(215 20% 40% / 0.35);
+    --color-input: hsl(222 18% 22% / 0.7);
+    --color-ring: hsl(173 50% 48%);
+    --color-destructive: hsl(0 65% 52%);
     --color-destructive-foreground: hsl(0 0% 100%);
+
+    --glass-border: hsl(0 0% 100% / 0.1);
+    --glass-highlight: hsl(0 0% 100% / 0.08);
 }
 
 .light {
-    --color-background: hsl(40 33% 96%);
-    --color-foreground: hsl(160 25% 12%);
-    --color-card: hsl(42 40% 98%);
-    --color-card-foreground: hsl(160 25% 12%);
-    --color-primary: hsl(158 45% 28%);
-    --color-primary-foreground: hsl(42 50% 96%);
-    --color-secondary: hsl(38 30% 90%);
-    --color-secondary-foreground: hsl(160 25% 18%);
-    --color-muted: hsl(40 20% 92%);
-    --color-muted-foreground: hsl(160 10% 38%);
-    --color-accent: hsl(38 55% 48%);
-    --color-accent-foreground: hsl(40 40% 12%);
-    --color-border: hsl(38 22% 82%);
-    --color-input: hsl(38 22% 86%);
-    --color-ring: hsl(158 45% 32%);
+    --color-background: hsl(210 40% 96%);
+    --color-foreground: hsl(222 30% 12%);
+    --color-card: hsl(0 0% 100% / 0.72);
+    --color-card-foreground: hsl(222 30% 12%);
+    --color-primary: hsl(173 55% 28%);
+    --color-primary-foreground: hsl(0 0% 100%);
+    --color-secondary: hsl(210 30% 94% / 0.85);
+    --color-secondary-foreground: hsl(222 25% 18%);
+    --color-muted: hsl(210 25% 93% / 0.9);
+    --color-muted-foreground: hsl(215 14% 40%);
+    --color-accent: hsl(199 70% 42%);
+    --color-accent-foreground: hsl(0 0% 100%);
+    --color-border: hsl(214 25% 80% / 0.65);
+    --color-input: hsl(214 25% 88% / 0.8);
+    --color-ring: hsl(173 55% 32%);
 }
 
 @layer base {
@@ -77,58 +86,116 @@
         background-color: var(--color-background);
         color: var(--color-foreground);
         font-family: var(--font-sans);
-        /* Soft parchment grain (light) / deep grove (dark) */
-        background-image:
-            radial-gradient(ellipse 120% 80% at 10% -10%, hsl(38 50% 88% / 0.55), transparent 50%),
-            radial-gradient(ellipse 90% 60% at 100% 0%, hsl(158 30% 85% / 0.35), transparent 45%);
         min-height: 100vh;
+        /* Layered mesh so glass panels have something to blur */
+        background-image:
+            radial-gradient(ellipse 90% 60% at 0% -10%, hsl(173 45% 75% / 0.45), transparent 55%),
+            radial-gradient(ellipse 70% 50% at 100% 0%, hsl(199 60% 80% / 0.4), transparent 50%),
+            radial-gradient(ellipse 60% 40% at 50% 100%, hsl(38 40% 85% / 0.25), transparent 50%);
+        background-attachment: fixed;
     }
 
     .dark body,
     html.dark body {
         background-image:
-            radial-gradient(ellipse 100% 70% at 0% 0%, hsl(158 35% 18% / 0.45), transparent 55%),
-            radial-gradient(ellipse 80% 50% at 100% 10%, hsl(38 40% 20% / 0.2), transparent 50%);
+            radial-gradient(ellipse 80% 55% at 10% 0%, hsl(173 40% 22% / 0.5), transparent 55%),
+            radial-gradient(ellipse 70% 45% at 100% 10%, hsl(222 40% 20% / 0.55), transparent 50%),
+            radial-gradient(ellipse 50% 40% at 40% 100%, hsl(199 35% 18% / 0.35), transparent 50%);
     }
 
-    /* Readable focus for keyboard users */
     :focus-visible {
         outline: 2px solid var(--color-ring);
         outline-offset: 2px;
     }
+
+    /* Prefer reduced motion when requested */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
 }
 
 @layer utilities {
-    .fantasy-title {
+    .fantasy-title,
+    .page-title {
         font-family: var(--font-display);
-        letter-spacing: 0.02em;
+        letter-spacing: -0.01em;
+        font-weight: 700;
     }
 
+    /* Core glass surface — used by cards, sidebar, modals */
+    .glass,
     .fantasy-panel {
-        background: linear-gradient(
-            145deg,
-            color-mix(in oklab, var(--color-card) 92%, var(--color-accent) 8%),
-            var(--color-card)
-        );
-        border: 1px solid var(--color-border);
+        background: var(--color-card);
+        border: 1px solid var(--glass-border);
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
         box-shadow:
-            0 1px 2px hsl(160 20% 10% / 0.04),
-            0 8px 24px hsl(160 25% 15% / 0.06);
+            0 1px 0 var(--glass-highlight) inset,
+            0 8px 32px hsl(222 30% 10% / 0.08);
     }
 
+    .dark .glass,
     .dark .fantasy-panel {
         box-shadow:
-            0 1px 2px hsl(0 0% 0% / 0.3),
-            0 12px 32px hsl(160 40% 5% / 0.35);
+            0 1px 0 var(--glass-highlight) inset,
+            0 12px 40px hsl(0 0% 0% / 0.35);
     }
 
-    .fantasy-ornament {
+    /* Stronger glass for floating chrome (sidebar, modals) */
+    .glass-strong {
+        background: color-mix(in oklab, var(--color-card) 88%, transparent);
+        border: 1px solid var(--glass-border);
+        backdrop-filter: blur(20px) saturate(1.4);
+        -webkit-backdrop-filter: blur(20px) saturate(1.4);
+        box-shadow:
+            0 1px 0 var(--glass-highlight) inset,
+            0 16px 48px hsl(222 30% 10% / 0.12);
+    }
+
+    /* Subtle glass for table shells / dense data */
+    .glass-subtle {
+        background: color-mix(in oklab, var(--color-card) 60%, transparent);
+        border: 1px solid var(--color-border);
+        backdrop-filter: blur(10px) saturate(1.2);
+        -webkit-backdrop-filter: blur(10px) saturate(1.2);
+    }
+
+    .fantasy-ornament,
+    .glass-divider {
+        height: 1px;
         background-image: linear-gradient(
             90deg,
             transparent,
-            color-mix(in oklab, var(--color-accent) 55%, transparent),
+            color-mix(in oklab, var(--color-primary) 35%, var(--color-border)),
             transparent
         );
-        height: 1px;
+    }
+
+    /* Stat / KPI icon chip */
+    .glass-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        padding: 0.5rem;
+        background: color-mix(in oklab, var(--color-primary) 12%, transparent);
+        border: 1px solid color-mix(in oklab, var(--color-primary) 20%, transparent);
+    }
+
+    /* Fallback when backdrop-filter unsupported */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+        .glass,
+        .fantasy-panel,
+        .glass-strong,
+        .glass-subtle {
+            background: var(--color-card);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+        }
     }
 }
