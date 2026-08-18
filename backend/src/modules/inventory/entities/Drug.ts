@@ -21,6 +21,18 @@ export class Drug {
     @Column({name: 'last_price_update_date', type: 'timestamp', nullable: true})
     lastPriceUpdateDate: Date | null;
 
+    /** External code used when calling Titak price API */
+    @Column({name: 'titak_code', type: 'varchar', nullable: true})
+    titakCode: string | null;
+
+    /** When false, line is never covered by social/insurance payers */
+    @Column({name: 'insurance_eligible', type: 'boolean', default: false})
+    insuranceEligible: boolean;
+
+    /** Optional national / formulary code for insurer claims */
+    @Column({name: 'insurance_code', type: 'varchar', nullable: true})
+    insuranceCode: string | null;
+
     @OneToMany(() => DrugBatch, (batch) => batch.drug)
     batches: DrugBatch[];
 }
