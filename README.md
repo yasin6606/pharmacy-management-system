@@ -56,9 +56,10 @@ Supports inventory control with batch-level expiry tracking, point-of-sale, empl
 | Layer          | Technology                                      |
 |----------------|-------------------------------------------------|
 | Frontend       | Next.js 16, React 19, TypeScript, Tailwind CSS 4, next-intl, next-themes, react-hook-form, Zod |
-| Backend        | Node.js, Express, TypeScript, TypeORM, Awilix, Zod, Winston, bcryptjs, jsonwebtoken |
-| Database       | PostgreSQL 13                                   |
-| Infrastructure | Docker, Docker Compose, Nginx                   |
+| Backend        | Node.js, Express, TypeScript, TypeORM, Awilix, Zod, Winston, bcryptjs, jsonwebtoken, ioredis |
+| Database       | PostgreSQL 16                                   |
+| Cache / limits | Redis 7 (login rate-limit store)                |
+| Infrastructure | Docker Compose, Nginx reverse proxy             |
 | Build          | Webpack (backend), Next.js (frontend)           |
 
 ---
@@ -67,28 +68,14 @@ Supports inventory control with batch-level expiry tracking, point-of-sale, empl
 
 ```
 pharmacy-management-system/
-├── backend/                 # Express + TypeORM API
-│   ├── src/
-│   │   ├── core/            # config, errors, logger, middleware, utils
-│   │   ├── modules/         # auth, employees, branches, inventory, sales,
-│   │   │                    # loss-reports, purchasing, reporting, settings,
-│   │   │                    # setup, integrations (titak, insurance, pos)
-│   │   ├── container.ts     # Awilix DI
-│   │   └── index.ts
-│   ├── Dockerfile
-│   └── package.json
-├── frontend/                # Next.js App Router
-│   ├── app/[locale]/        # i18n routes (auth + dashboard)
-│   ├── components/          # forms, layouts, ui
-│   ├── context/             # Auth, Error, SalesTabs
-│   ├── hooks/
-│   ├── i18n/ & messages/    # en.json + fa.json
-│   ├── lib/
-│   └── types/
+├── backend/
+├── frontend/
 ├── infrastructure/
 │   ├── docker-compose.yaml
-│   └── nginx.conf
-└── .gitignore
+│   ├── nginx.conf
+│   ├── .env.example
+│   └── README.md
+└── README.md
 ```
 
 ---
@@ -100,7 +87,7 @@ pharmacy-management-system/
 - Docker & Docker Compose
 - Git
 
-### 1. Clone the repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/yasin6606/pharmacy-management-system.git
@@ -111,17 +98,23 @@ cd pharmacy-management-system
 
 ```bash
 cd infrastructure
+cp .env.example .env
+# set strong POSTGRES_PASSWORD and JWT_SECRET
+
+# First boot only: allow TypeORM to create tables (or run migrations instead)
+# TYPEORM_SYNCHRONIZE=true
+
 docker compose up --build -d
 ```
 
-Services:
-- **Frontend + API** → http://localhost (via Nginx)
-- **PostgreSQL** → `localhost:5432`  
-  - User: `postgres`  
-  - Password: `123456`  
-  - Database: `pharmacy_db`
+| Service   | Access |
+|-----------|--------|
+| App + API | http://localhost (Nginx) |
+| Health    | http://localhost/health |
+| Postgres  | internal only (`postgres:5432`) |
+| Redis     | internal only (`redis:6379`) |
 
-The backend waits for a healthy Postgres instance before starting.
+See [infrastructure/README.md](./infrastructure/README.md) for architecture decisions, scaling, and optional DB port publishing.
 
 ### 3. Local development (without Docker)
 
@@ -129,8 +122,7 @@ The backend waits for a healthy Postgres instance before starting.
 
 ```bash
 cd backend
-cp .env.development.example .env.development   # create if needed
-# Edit DATABASE_URL, JWT_SECRET, etc.
+# create .env.development with DATABASE_URL, JWT_SECRET, …
 npm install
 npm run dev
 ```
@@ -141,7 +133,7 @@ Default port: `3001`
 
 ```bash
 cd frontend
-# Set NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
+# NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
 npm install
 npm run dev
 ```
@@ -150,33 +142,33 @@ Default port: `3000`
 
 ### First-time Setup
 
-1. Open the application.
-2. You will be redirected to the **Setup** page.
-3. Create the first manager account (email + password + full name).
-4. Log in and start managing branches, employees, and inventory.
+1. Open the app → **Setup** page  
+2. Create the first manager  
+3. Log in and configure branches / inventory  
 
 ---
 
 ## Environment Variables
 
-### Backend (`.env.development` / `.env.production`)
+### Docker (`infrastructure/.env`)
 
-| Variable              | Description                          | Example                                      |
-|-----------------------|--------------------------------------|----------------------------------------------|
-| `NODE_ENV`            | Environment                          | `development` / `production`                 |
-| `PORT`                | API port                             | `3001`                                       |
-| `DATABASE_URL`        | PostgreSQL connection string         | `postgresql://postgres:123456@localhost:5432/pharmacy_db` |
-| `JWT_SECRET`          | JWT signing secret                   | strong random string                         |
-| `JWT_EXPIRES_IN`      | Token lifetime                       | `7d`                                         |
-| `TITAK_API_KEY`       | Titak integration key                | —                                            |
-| `OCR_SERVICE_URL`     | OCR service endpoint                 | —                                            |
-| `TYPEORM_SYNCHRONIZE` | Auto-sync schema (dev only)          | `true` / `false`                             |
+Copy from `infrastructure/.env.example`. Required: `POSTGRES_PASSWORD`, `JWT_SECRET`.
+
+### Backend (local)
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Signing secret (required in production) |
+| `JWT_EXPIRES_IN` | e.g. `7d` |
+| `REDIS_URL` | Optional; enables shared rate limits |
+| `TYPEORM_SYNCHRONIZE` | `true` only for local/first bootstrap |
 
 ### Frontend
 
-| Variable                | Description                     |
-|-------------------------|---------------------------------|
-| `NEXT_PUBLIC_API_URL`   | Backend API base path           | `/api/v1` (Docker) or full URL |
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_API_URL` | `/api/v1` behind Nginx, or full URL in local dev |
 
 ---
 
@@ -184,21 +176,21 @@ Default port: `3000`
 
 All routes are prefixed with `/api/v1`.
 
-| Module          | Base Path                     | Notes                          |
-|-----------------|-------------------------------|--------------------------------|
-| Setup           | `/setup`                      | Initial manager creation       |
-| Auth            | `/auth`                       | Login / logout / sessions      |
-| Employees       | `/employees`                  | CRUD + role management         |
-| Branches        | `/branches`                   | Multi-branch management        |
-| Inventory       | `/inventory`                  | Drugs, batches, movements      |
-| Sales           | `/sales`                      | Transactions & baskets         |
-| Loss Reports    | `/loss-reports`               | Create & review workflow       |
-| Reporting       | `/reporting`                  | CSV / PDF exports              |
-| Purchasing      | `/purchasing`                 | Orders + OCR                   |
-| Settings        | `/settings`                   | System config                  |
-| Integrations    | `/integrations/*`             | Titak, Insurance, POS          |
+| Module | Base Path |
+|--------|-----------|
+| Setup | `/setup` |
+| Auth | `/auth` |
+| Employees | `/employees` |
+| Branches | `/branches` |
+| Inventory | `/inventory` |
+| Sales | `/sales` |
+| Loss Reports | `/loss-reports` |
+| Reporting | `/reporting` |
+| Purchasing | `/purchasing` |
+| Settings | `/settings` |
+| Integrations | `/integrations/*` |
 
-Health check: `GET /health`
+Health: `GET /health`
 
 ---
 
@@ -206,44 +198,37 @@ Health check: `GET /health`
 
 ### Backend
 ```bash
-npm run dev      # Development with hot reload
-npm run build    # Webpack production build
-npm start        # Run production build
+npm run dev
+npm run build
+npm start
+npm test
+npm run migration:run
 ```
 
 ### Frontend
 ```bash
-npm run dev      # Next.js development server
-npm run build    # Production build
-npm start        # Serve production build
+npm run dev
+npm run build
+npm start
+npm test
 ```
 
 ---
 
 ## Security Notes
 
-- Passwords are hashed with bcrypt (cost 10).
-- JWT-based authentication with configurable expiry.
-- Helmet + CORS configured.
-- Role-based middleware protects routes.
-- Input validation with Zod on both client and server.
-- Sensitive values must be provided via environment variables (never commit secrets).
+- Passwords hashed with bcrypt  
+- JWT auth + RBAC middleware  
+- Login rate limiting (Redis when available)  
+- Helmet; Zod validation  
+- Secrets only via environment variables  
+- DB/Redis not published on the host by default  
 
 ---
 
 ## License
 
 This project is private / proprietary unless otherwise stated by the author.
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
 
 ---
 
