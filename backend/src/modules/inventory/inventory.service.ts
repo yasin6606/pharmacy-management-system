@@ -22,6 +22,9 @@ export class InventoryService {
             company: data.company.trim(),
             brand,
             enteringDate,
+            titakCode: data.titakCode?.trim() || null,
+            insuranceEligible: Boolean(data.insuranceEligible),
+            insuranceCode: data.insuranceCode?.trim() || null,
         });
         return this.drugRepo.save(drug);
     }
@@ -56,11 +59,19 @@ export class InventoryService {
                 ? new Date(data.lastPriceUpdateDate as unknown as string)
                 : null;
         }
+        if (data.titakCode !== undefined) {
+            drug.titakCode = data.titakCode ? String(data.titakCode).trim() : null;
+        }
+        if (data.insuranceEligible !== undefined) {
+            drug.insuranceEligible = Boolean(data.insuranceEligible);
+        }
+        if (data.insuranceCode !== undefined) {
+            drug.insuranceCode = data.insuranceCode ? String(data.insuranceCode).trim() : null;
+        }
 
         return this.drugRepo.save(drug);
     }
 
-    /** Soft-safe delete: block if any batch still has stock. */
     async deleteDrug(id: string) {
         const drug = await this.drugRepo.findOne({
             where: {id},
