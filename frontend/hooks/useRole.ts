@@ -1,23 +1,34 @@
-import{ useAuth } from '@/context/AuthContext';;
+import {useAuth} from '@/context/AuthContext';
 
+/**
+ * Role-based capability flags derived from the authenticated user.
+ * Keep UI gating in sync with backend RBAC middleware.
+ */
 export function useRole() {
-  const { user } = useAuth();
+    const {user} = useAuth();
 
-  const isJunior = user?.role === 'junior';
-  const isSenior = user?.role === 'senior';
-  const isManager = user?.role === 'manager';
-  const isAccountant = user?.role === 'accountant';
+    const isJunior = user?.role === 'junior';
+    const isSenior = user?.role === 'senior';
+    const isManager = user?.role === 'manager';
+    const isAccountant = user?.role === 'accountant';
 
-  const canManageEmployees = isManager;
-  const canManageBranches = isManager;
-  const canViewAllReports = isManager || isAccountant;
-  const canApproveLoss = isSenior || isManager;
-  const canAdjustStock = isSenior || isManager;
-  const canRecordSales = true; // all roles
+    const canManageEmployees = isManager;
+    const canManageBranches = isManager;
+    const canViewAllReports = isManager || isAccountant;
+    const canApproveLoss = isSenior || isManager;
+    const canAdjustStock = isSenior || isManager;
+    const canRecordSales = true; // all authenticated roles
 
-  return {
-    isJunior, isSenior, isManager, isAccountant,
-    canManageEmployees, canManageBranches, canViewAllReports,
-    canApproveLoss, canAdjustStock, canRecordSales,
-  };
+    return {
+        isJunior,
+        isSenior,
+        isManager,
+        isAccountant,
+        canManageEmployees,
+        canManageBranches,
+        canViewAllReports,
+        canApproveLoss,
+        canAdjustStock,
+        canRecordSales,
+    };
 }
