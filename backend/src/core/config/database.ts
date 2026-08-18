@@ -11,14 +11,19 @@ import {Supplier} from '../../modules/purchasing/entities/Supplier';
 import {PurchaseOrder} from '../../modules/purchasing/entities/PurchaseOrder';
 import {LossReport} from '../../modules/loss-reports/entities/LossReport';
 import {EmployeeBranchHistory} from '../../modules/employees/entities/EmployeeBranchHistory';
-import {Settings} from "../../modules/settings/entities/Settings";
+import {Settings} from '../../modules/settings/entities/Settings';
+
+const shouldSynchronize =
+    env.TYPEORM_SYNCHRONIZE === 'true' ||
+    (env.TYPEORM_SYNCHRONIZE !== 'false' && env.NODE_ENV === 'development');
 
 export const AppDataSource = new DataSource({
     type: 'postgres',
     username: env.DATABASE_USERNAME,
     password: env.DATABASE_PASSWORD,
     url: env.DATABASE_URL,
-    synchronize: env.NODE_ENV === 'development',
+    // Prefer explicit TYPEORM_SYNCHRONIZE; fall back to development-only auto-sync
+    synchronize: shouldSynchronize,
     logging: env.NODE_ENV === 'development',
     entities: [
         Branch,
@@ -32,7 +37,7 @@ export const AppDataSource = new DataSource({
         PurchaseOrder,
         LossReport,
         EmployeeBranchHistory,
-        Settings
+        Settings,
     ],
     migrations: [],
     subscribers: [],
