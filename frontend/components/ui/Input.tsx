@@ -1,6 +1,6 @@
-'use client';     // ← important because we now use useId
-import { forwardRef, InputHTMLAttributes, useId } from 'react';
-import { cn } from '@/lib/utils';
+'use client';
+import {forwardRef, InputHTMLAttributes, useId} from 'react';
+import {cn} from '@/lib/utils';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
     error?: string;
@@ -8,14 +8,17 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-    ({ className, error, label, id, type, ...props }, ref) => {
+    ({className, error, label, id, type, ...props}, ref) => {
         const generatedId = useId();
         const inputId = id || generatedId;
 
         return (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
                 {label && (
-                    <label htmlFor={inputId} className="text-sm font-medium text-foreground">
+                    <label
+                        htmlFor={inputId}
+                        className="text-sm font-medium text-[var(--color-foreground)]"
+                    >
                         {label}
                     </label>
                 )}
@@ -24,22 +27,23 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
                     type={type}
                     ref={ref}
                     className={cn(
-                        'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground',
-                        'file:border-0 file:bg-transparent file:text-sm file:font-medium',
-                        'placeholder:text-muted-foreground',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                        'flex h-10 w-full rounded-lg border border-[var(--color-input)]',
+                        'bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)]',
+                        'placeholder:text-[var(--color-muted-foreground)]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2',
+                        'focus-visible:ring-offset-[var(--color-background)]',
                         'disabled:cursor-not-allowed disabled:opacity-50',
-                        type === 'date' && 'color-scheme-light-dark',
-                        error && 'border-red-500 focus-visible:ring-red-500',
+                        'transition-shadow',
+                        error && 'border-[var(--color-destructive)] focus-visible:ring-[var(--color-destructive)]',
                         className
                     )}
-                    style={type === 'date' ? { colorScheme: 'light dark' } : undefined}
+                    style={type === 'date' ? {colorScheme: 'light dark'} : undefined}
                     aria-invalid={!!error}
                     aria-describedby={error ? `${inputId}-error` : undefined}
                     {...props}
                 />
                 {error && (
-                    <p id={`${inputId}-error`} className="text-xs text-red-500 dark:text-red-400">
+                    <p id={`${inputId}-error`} className="text-xs text-[var(--color-destructive)]" role="alert">
                         {error}
                     </p>
                 )}
@@ -49,4 +53,4 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 
 Input.displayName = 'Input';
-export { Input };
+export {Input};
