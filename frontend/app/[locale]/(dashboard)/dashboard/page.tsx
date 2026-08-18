@@ -18,8 +18,11 @@ import {
     DollarSign,
     Users,
 } from 'lucide-react';
-import {Drug, DrugBatch, LossReport, PaginatedResponse, Sale} from '@/types';
+import {DrugBatch, LossReport, PaginatedResponse, Sale} from '@/types';
 import {cn} from '@/lib/utils';
+
+type CatalogStats = {totalDrugs: number; totalBatches: number; totalUnits: number};
+type SalesSummary = {totalRevenue: number; transactionCount: number};
 
 export default function DashboardPage() {
     const t = useTranslations('dashboard');
@@ -46,19 +49,21 @@ export default function DashboardPage() {
             const branchId = user?.currentBranchId;
             const today = new Date().toISOString().split('T')[0];
 
-            const drugsRes = await get<PaginatedResponse<Drug>>('/inventory/drugs', {params: {limit: 1}});
-            const totalDrugs = drugsRes?.total || 0;
+            // Catalog total — dedicated stats (not limited by page size)
+            const catalog = await get<CatalogStats>('/inventory/catalog/stats');
+            const totalDrugs = catalog?.totalDrugs ?? 0;
+
+            // Today's revenue — SQL SUM, not sum of a single page of rows
+            const summary = await get<SalesSummary>('/sales/summary', {
+                params: {startDate: today, endDate: today},
+            });
+            const todaySales = Number(summary?.totalRevenue ?? 0);
+            const todayTransactions = Number(summary?.transactionCount ?? 0);
 
             let batches: DrugBatch[] = [];
-            if (branchId) batches = (await get<DrugBatch[]>(`/inventory/branches/${branchId}/inventory`)) || [];
-
-            const salesTodayRes = await get<PaginatedResponse<Sale>>('/sales', {
-                params: {startDate: today, endDate: today, limit: 1},
-            });
-            const todayTransactions = salesTodayRes?.total || 0;
-            const todaySales = Array.isArray(salesTodayRes?.items)
-                ? salesTodayRes.items.reduce((sum: number, s: Sale) => sum + Number(s.totalPrice), 0)
-                : 0;
+            if (branchId) {
+                batches = (await get<DrugBatch[]>(`/inventory/branches/${branchId}/inventory`)) || [];
+            }
 
             const lossRes = await get<PaginatedResponse<LossReport>>('/loss-reports', {
                 params: {status: 'pending', limit: 1},
@@ -69,9 +74,9 @@ export default function DashboardPage() {
             const thirtyDays = 30 * 24 * 60 * 60 * 1000;
             const expiringSoon = batches.filter((b) => {
                 const exp = new Date(b.expirationDate).getTime();
-                return exp - now <= thirtyDays && exp > now;
+                return exp - now <= thirtyDays && exp > now && b.count > 0;
             }).length;
-            const lowStock = batches.filter((b) => b.count < 10).length;
+            const lowStock = batches.filter((b) => b.count > 0 && b.count < 10).length;
 
             const recentRes = await get<PaginatedResponse<Sale>>('/sales', {params: {limit: 5}});
             const recent = recentRes?.items || [];
@@ -86,7 +91,7 @@ export default function DashboardPage() {
             });
             setRecentSales(recent);
         } catch {
-            // global error toast
+            // toast via useApi
         } finally {
             setLoading(false);
         }
@@ -134,11 +139,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
-                <StatsCard
-                    title={t('totalDrugs')}
-                    value={stats.totalDrugs}
-                    icon={<Package className="h-4 w-4" />}
-                />
+                <StatsCard title={t('totalDrugs')} value={stats.totalDrugs} icon={<Package className="h-4 w-4" />} />
                 <StatsCard
                     title={t('todaySales')}
                     value={`$${stats.todaySales.toFixed(2)}`}
@@ -218,11 +219,7 @@ export default function DashboardPage() {
                         <CardTitle>{t('quickActions')}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        <Button
-                            variant="outline"
-                            className="w-full justify-start"
-                            onClick={() => router.push('/sales')}
-                        >
+                        <Button variant="outline" className="w-full justify-start" onClick={() => router.push('/sales')}>
                             <ShoppingCart className="h-4 w-4" />
                             {t('newSale')}
                         </Button>
@@ -290,9 +287,7 @@ function StatsCard({title, value, subtitle, icon, tone = 'default'}: StatsCardPr
                 <span className="glass-chip text-[var(--color-primary)]">{icon}</span>
             </CardHeader>
             <CardContent>
-                <div className="text-xl sm:text-2xl font-bold tabular-nums text-[var(--color-foreground)]">
-                    {value}
-                </div>
+                <div className="text-xl sm:text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{value}</div>
                 {subtitle && (
                     <p className="text-[11px] sm:text-xs text-[var(--color-muted-foreground)] mt-1">{subtitle}</p>
                 )}
