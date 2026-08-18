@@ -12,7 +12,11 @@
     "build": "webpack --config webpack.config.js",
     "start": "node -r dotenv/config dist/server.js dotenv_config_path=.env.production",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts dotenv_config_path=.env.development",
-    "typeorm": "typeorm-ts-node-commonjs"
+    "typeorm": "typeorm-ts-node-commonjs -d src/core/config/data-source.ts",
+    "migration:generate": "npm run typeorm -- migration:generate",
+    "migration:run": "npm run typeorm -- migration:run",
+    "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:show": "npm run typeorm -- migration:show"
   },
   "dependencies": {
     "awilix": "^10.0.0",
