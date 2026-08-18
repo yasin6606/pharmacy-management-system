@@ -16,7 +16,7 @@ import {
     X,
     ClipboardList,
     CreditCard,
-    Sparkles,
+    Cross,
 } from 'lucide-react';
 import {useAuth} from '@/context/AuthContext';
 import {ThemeToggle} from './ThemeToggle';
@@ -65,59 +65,64 @@ export function Sidebar() {
     const sidebarContent = (
         <>
             <div className="p-4 border-b border-[var(--color-border)]">
-                <div className="flex items-center gap-2 mb-1">
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm">
-                        <Sparkles className="h-4 w-4" aria-hidden />
+                <div className="flex items-center gap-3">
+                    <span className="glass-chip text-[var(--color-primary)]">
+                        <Cross className="h-4 w-4" aria-hidden />
                     </span>
-                    <div>
-                        <h1 className="fantasy-title text-base sm:text-lg font-bold text-[var(--color-foreground)] leading-tight">
-                            Arcane Apothecary
-                        </h1>
-                        <p className="text-[10px] uppercase tracking-widest text-[var(--color-accent)] font-semibold">
+                    <div className="min-w-0">
+                        <h1 className="page-title text-sm sm:text-base text-[var(--color-foreground)] leading-tight truncate">
                             Pharmacy MS
+                        </h1>
+                        <p className="text-[11px] text-[var(--color-muted-foreground)] truncate">
+                            Multi-branch operations
                         </p>
                     </div>
                 </div>
-                <p className="text-xs sm:text-sm text-[var(--color-muted-foreground)] mt-2 truncate">
-                    {user?.fullName}
-                    {user?.role ? ` · ${roleT(user.role)}` : ''}
-                </p>
-                <div className="fantasy-ornament mt-3" aria-hidden />
+                <div className="mt-3 rounded-xl glass-subtle px-3 py-2">
+                    <p className="text-xs font-medium text-[var(--color-foreground)] truncate">{user?.fullName}</p>
+                    <p className="text-[11px] text-[var(--color-muted-foreground)] truncate">
+                        {user?.role ? roleT(user.role) : ''}
+                        {user?.currentBranchId ? ' · branch assigned' : ''}
+                    </p>
+                </div>
             </div>
 
-            <nav className="flex-1 p-2 space-y-1 overflow-y-auto" aria-label="Main">
+            <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto" aria-label="Main">
                 {filteredItems.map((item) => {
-                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                    const isActive =
+                        pathname === item.href ||
+                        (item.href !== '/dashboard' && pathname.startsWith(item.href + '/')) ||
+                        (item.href !== '/dashboard' && pathname === item.href);
                     return (
                         <Link
                             key={item.href}
                             href={item.href as any}
                             onClick={() => setMobileOpen(false)}
                             className={cn(
-                                'flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium transition-all text-xs sm:text-sm',
+                                'flex items-center gap-3 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-colors',
                                 isActive
                                     ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm'
                                     : 'text-[var(--color-foreground)] hover:bg-[var(--color-secondary)]'
                             )}
                         >
-                            <item.icon className="h-5 w-5 flex-shrink-0 opacity-90" aria-hidden />
-                            <span>{t(item.labelKey)}</span>
+                            <item.icon className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 opacity-90" aria-hidden />
+                            <span className="truncate">{t(item.labelKey)}</span>
                         </Link>
                     );
                 })}
             </nav>
 
-            <div className="p-4 border-t border-[var(--color-border)] space-y-3">
-                <div className="flex items-center justify-between gap-2">
+            <div className="p-3 border-t border-[var(--color-border)] space-y-2">
+                <div className="flex items-center justify-between gap-2 px-1">
                     <ThemeToggle />
                     <LanguageSwitcher />
                 </div>
                 <button
                     type="button"
                     onClick={logout}
-                    className="flex items-center gap-3 w-full px-3 py-2 text-xs sm:text-sm text-[var(--color-destructive)] hover:bg-[var(--color-secondary)] rounded-lg transition-colors"
+                    className="flex items-center gap-3 w-full px-3 py-2 text-xs sm:text-sm rounded-xl text-[var(--color-destructive)] hover:bg-[var(--color-secondary)] transition-colors"
                 >
-                    <LogOut className="h-5 w-5 flex-shrink-0" aria-hidden />
+                    <LogOut className="h-4 w-4 flex-shrink-0" aria-hidden />
                     <span>{authT('logout')}</span>
                 </button>
             </div>
@@ -129,7 +134,7 @@ export function Sidebar() {
             <Button
                 variant="outline"
                 size="icon"
-                className="fixed top-4 start-4 z-50 md:hidden shadow-md bg-[var(--color-card)]"
+                className="fixed top-3 start-3 z-50 md:hidden glass-strong"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
                 aria-expanded={mobileOpen}
@@ -137,13 +142,13 @@ export function Sidebar() {
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
 
-            <aside className="hidden md:flex w-64 fantasy-panel border-e border-[var(--color-border)] h-screen flex-col rounded-none">
+            <aside className="hidden md:flex w-60 lg:w-64 glass-strong border-e border-[var(--color-border)] h-screen flex-col rounded-none">
                 {sidebarContent}
             </aside>
 
             {mobileOpen && (
                 <div
-                    className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
+                    className="fixed inset-0 bg-black/40 z-40 md:hidden backdrop-blur-sm"
                     onClick={() => setMobileOpen(false)}
                     aria-hidden
                 />
@@ -151,7 +156,7 @@ export function Sidebar() {
 
             <aside
                 className={cn(
-                    'fixed top-0 start-0 z-50 h-screen w-64 max-w-[85vw] fantasy-panel border-e border-[var(--color-border)] flex-col transition-transform duration-300 ease-in-out md:hidden',
+                    'fixed top-0 start-0 z-50 h-screen w-64 max-w-[85vw] glass-strong border-e border-[var(--color-border)] flex-col transition-transform duration-300 ease-in-out md:hidden',
                     mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
                 )}
                 aria-hidden={!mobileOpen}
