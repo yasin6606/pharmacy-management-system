@@ -7,13 +7,13 @@ export const Table = ({
     children: React.ReactNode;
     className?: string;
 }) => (
-    <div className="relative overflow-x-auto rounded-xl border border-[var(--color-border)] fantasy-panel">
+    <div className="relative overflow-x-auto rounded-xl glass-subtle">
         <table className={cn('w-full text-start', className)}>{children}</table>
     </div>
 );
 
 export const TableHeader = ({children}: {children: React.ReactNode}) => (
-    <thead className="bg-[var(--color-secondary)] text-[var(--color-muted-foreground)] border-b border-[var(--color-border)]">
+    <thead className="bg-[color-mix(in_oklab,var(--color-secondary)_90%,transparent)] text-[var(--color-muted-foreground)] border-b border-[var(--color-border)]">
         {children}
     </thead>
 );
@@ -31,7 +31,7 @@ export const TableRow = ({
 }) => (
     <tr
         className={cn(
-            'transition-colors hover:bg-[var(--color-muted)]/60 data-[state=selected]:bg-[var(--color-muted)]',
+            'transition-colors hover:bg-[color-mix(in_oklab,var(--color-muted)_70%,transparent)]',
             className
         )}
     >
@@ -48,7 +48,7 @@ export const TableHead = ({
 }) => (
     <th
         className={cn(
-            'px-3 py-2.5 text-start text-xs font-semibold uppercase tracking-wide sm:text-sm sm:px-4 sm:py-3',
+            'px-3 py-2.5 text-start text-[11px] sm:text-xs font-semibold uppercase tracking-wide sm:px-4',
             className
         )}
     >
@@ -63,5 +63,5 @@ export const TableCell = ({
     children: React.ReactNode;
     className?: string;
 }) => (
-    <td className={cn('px-3 py-2.5 text-xs sm:text-sm sm:px-4 sm:py-3', className)}>{children}</td>
+    <td className={cn('px-3 py-2.5 text-xs sm:text-sm sm:px-4', className)}>{children}</td>
 );
