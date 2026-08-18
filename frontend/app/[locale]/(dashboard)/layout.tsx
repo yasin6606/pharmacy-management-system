@@ -12,10 +12,10 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[var(--color-background)]">
-                <div className="flex flex-col items-center gap-3">
+            <div className="flex h-screen items-center justify-center">
+                <div className="glass-strong rounded-2xl px-8 py-6 flex flex-col items-center gap-3">
                     <Spinner size="lg" />
-                    <p className="text-sm text-[var(--color-muted-foreground)]">Opening the apothecary…</p>
+                    <p className="text-sm text-[var(--color-muted-foreground)]">Loading workspace…</p>
                 </div>
             </div>
         );
@@ -24,9 +24,9 @@ export default function DashboardLayout({children}: {children: React.ReactNode})
 
     return (
         <SalesTabsProvider>
-            <div className="flex h-screen bg-[var(--color-background)]">
+            <div className="flex h-screen">
                 <Sidebar />
-                <main className="flex-1 overflow-auto p-4 pt-16 md:p-6 md:pt-6">
+                <main className="flex-1 overflow-auto p-3 pt-14 sm:p-4 md:p-6 md:pt-6">
                     <div className="mx-auto max-w-7xl">{children}</div>
                 </main>
             </div>
