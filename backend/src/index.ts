@@ -1,8 +1,8 @@
-import { createApp } from './app';
-import { AppDataSource } from './core/config/database';
-import { env } from './core/config/env';
-import { logger } from './core/logger/logger';
-import { startExpirationAlertJob } from './modules/inventory/jobs/expirationAlertJob';
+import {createApp} from './app';
+import {AppDataSource} from './core/config/database';
+import {env} from './core/config/env';
+import {logger} from './core/logger/logger';
+import {startExpirationAlertJob} from './modules/inventory/jobs/expirationAlertJob';
 
 const startServer = async () => {
     try {
@@ -10,8 +10,10 @@ const startServer = async () => {
         logger.info('Database connected');
 
         const app = createApp();
-        app.listen(env.PORT, () => {
-            logger.info(`Server running on port ${env.PORT}`);
+        const port = Number(env.PORT) || 3001;
+
+        app.listen(port, () => {
+            logger.info(`Server running on port ${port}`);
         });
 
         startExpirationAlertJob();
