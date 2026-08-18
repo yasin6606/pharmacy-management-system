@@ -1,12 +1,12 @@
 'use client';
-'use client';
+
 import {useForm} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {z} from 'zod';
 import {useTranslations} from 'next-intl';
 import {Input} from '@/components/ui/Input';
 import {Button} from '@/components/ui/Button';
-import {apiPost} from '@/lib/api';
+import {apiPost, ApiError} from '@/lib/api';
 import {useRouter} from '@/navigation';
 import {useState} from 'react';
 
@@ -15,6 +15,8 @@ const schema = z.object({
     password: z.string().min(6),
     fullName: z.string().min(1),
 });
+
+type FormData = z.infer<typeof schema>;
 
 export default function SetupPage() {
     const t = useTranslations('auth');
@@ -28,16 +30,20 @@ export default function SetupPage() {
         register,
         handleSubmit,
         formState: {errors, isSubmitting},
-    } = useForm({
+    } = useForm<FormData>({
         resolver: zodResolver(schema),
     });
 
-    const onSubmit = async (data: any) => {
+    const onSubmit = async (data: FormData) => {
         try {
             await apiPost<unknown>('/setup', data);
             router.push('/login');
-        } catch (err: any) {
-            setError(err.response?.data?.message || msgT('error'));
+        } catch (err: unknown) {
+            if (err instanceof ApiError) {
+                setError(err.message || msgT('error'));
+            } else {
+                setError(msgT('error'));
+            }
         }
     };
 
