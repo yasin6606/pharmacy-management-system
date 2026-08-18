@@ -12,15 +12,23 @@ const controller = new InventoryController(service);
 
 router.use(authMiddleware);
 
+const managers = requireRole('manager', 'senior');
+
+// ---- Catalog overview (before :id routes) ----
+router.get('/catalog/stats', controller.getCatalogStats);
+router.get('/batches/expiring', controller.getExpiring);
+
 // ---- Drugs catalog ----
 router.get('/drugs', controller.getAllDrugs);
-router.post('/drugs', requireRole('manager', 'senior'), controller.createDrug);
+router.post('/drugs', managers, controller.createDrug);
 router.get('/drugs/:id', controller.getDrugById);
-router.put('/drugs/:id', requireRole('manager', 'senior'), controller.updateDrug);
+router.put('/drugs/:id', managers, controller.updateDrug);
+router.delete('/drugs/:id', requireRole('manager'), controller.deleteDrug);
 
 // ---- Batches & stock movements ----
-router.post('/batches', requireRole('manager', 'senior'), controller.addBatch);
+router.post('/batches', managers, controller.addBatch);
+router.put('/batches/:id', managers, controller.updateBatch);
 router.get('/branches/:branchId/inventory', controller.getBranchInventory);
-router.post('/transfer', requireRole('manager', 'senior'), controller.transferStock);
+router.post('/transfer', managers, controller.transferStock);
 
 export default router;
