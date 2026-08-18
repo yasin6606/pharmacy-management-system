@@ -1,19 +1,24 @@
 # Pharmacy Management System — production-oriented Compose stack
 #
-# Architecture decisions:
-# 1. Nginx is the ONLY process published to the host (HTTP_PORT).
-# 2. Postgres / Redis / backend / frontend stay on the internal network.
-# 3. Secrets come from infrastructure/.env (see .env.example) — never hardcode.
-# 4. Redis is included so login rate-limits work correctly with multiple backend replicas.
-# 5. Postgres 16 (current stable) instead of EOL 13.
-# 6. Healthchecks + depends_on conditions for ordered, reliable startup.
+# Decisions:
+# • Nginx is the only host-published service (HTTP_PORT).
+# • Postgres, Redis, backend, frontend stay on an internal bridge network.
+# • Secrets via infrastructure/.env (see .env.example).
+# • Redis enables shared login rate-limits across backend replicas.
+# • Postgres 16-alpine (supported) instead of EOL 13.
+# • Healthchecks + depends_on for ordered startup.
+# • TYPEORM_SYNCHRONIZE defaults to false in containers (use migrations).
 #
-# Usage:
-#   cp .env.example .env   # edit secrets
+# Quick start:
+#   cp .env.example .env && nano .env
 #   docker compose up --build -d
+#   open http://localhost
 #
-# Optional: expose Postgres on localhost for GUI tools
-#   docker compose --profile dev-db up -d
+# Dev: publish Postgres to localhost (optional override)
+#   Create docker-compose.override.yaml with:
+#     services:
+#       postgres:
+#         ports: ["5432:5432"]
 
 name: pharmacy
 
@@ -27,7 +32,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-pharmacy_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # Not published by default — use profile `dev-db` if you need host access
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
@@ -36,7 +40,6 @@ services:
       start_period: 15s
     networks:
       - internal
-    # Keep DB lean on small hosts
     command:
       - postgres
       - -c
@@ -44,22 +47,19 @@ services:
       - -c
       - max_connections=100
 
-  # Optional host access for DBeaver / pgAdmin during development
-  postgres-publish:
-    profiles: ["dev-db"]
-    image: postgres:16-alpine
-    network_mode: "service:postgres"
-    # This service only exists to document the profile pattern;
-    # prefer: docker compose run with ports on a override file if needed.
-    # For simplicity, publish via the main service when profile is active:
-    # (Compose cannot attach ports via network_mode easily — see ports below on postgres when override used)
-    deploy:
-      replicas: 0
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -77,7 +77,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: 3001
+      PORT: "3001"
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pharmacy_db}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
@@ -92,14 +92,12 @@ services:
         condition: service_healthy
     networks:
       - internal
-    # No host ports — reach API only via nginx /api/
 
   frontend:
     build:
       context: ../frontend
       dockerfile: Dockerfile
       args:
-        # Browser calls same origin; nginx routes /api → backend
         NEXT_PUBLIC_API_URL: /api/v1
     restart: unless-stopped
     environment:
