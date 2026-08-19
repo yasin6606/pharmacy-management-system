@@ -1,21 +1,36 @@
-# Database Migrations
+# TypeORM migrations
 
-Schema changes **must** go through TypeORM migrations in shared and production environments.
+## Policy
 
-## Commands (run from `backend/`)
+- **Development:** `TYPEORM_SYNCHRONIZE=true` may create/alter schema from entities.
+- **Production:** keep `TYPEORM_SYNCHRONIZE=false` and apply migrations.
+
+`AppDataSource` loads files from `backend/src/migrations/*.{ts,js}`.
+
+## Generate (example)
 
 ```bash
-# Generate a new migration from entity diffs
-npm run migration:generate -- src/migrations/DescriptiveName
-
-# Apply pending migrations
-npm run migration:run
-
-# Revert the last migration
-npm run migration:revert
-
-# Show migration status
-npm run migration:show
+cd backend
+npx typeorm migration:generate src/migrations/AddPharmacyOpsFeatures -d src/core/config/data-source.ts
+npx typeorm migration:run -d src/core/config/data-source.ts
 ```
 
-The CLI DataSource lives at `src/core/config/data-source.ts` (`synchronize: false`).
+## New entities (2026-08 expansion)
+
+Ensure production DBs receive tables for:
+
+- `customers`
+- `prescriptions`
+- `invoice_sequences`
+- `cash_shifts`
+- `audit_logs`
+- `drug_interactions`
+- `notification_outbox`
+- `goods_receipts`
+- `controlled_drug_logs`
+
+And drug columns: `barcode`, `is_controlled`, `min_stock_level`, `notes`.
+
+Stock movement enum should include `purchase`.
+
+Until a formal migration file is committed, bootstrap environments may use synchronize once, then disable it.
