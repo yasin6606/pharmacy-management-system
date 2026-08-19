@@ -47,7 +47,7 @@ router.post('/notifications/credit-reminder', controller.creditReminder);
 router.post('/goods-receipts', requireRole('manager', 'senior'), controller.receiveGoods);
 
 // Controlled drugs
-router.get('/controlled-logs', requireRole('manager', 'senior', 'pharmacist' as any), controller.listControlled);
+router.get('/controlled-logs', requireRole('manager', 'senior'), controller.listControlled);
 router.post('/controlled-logs', controller.logControlled);
 
 // Accounting export
