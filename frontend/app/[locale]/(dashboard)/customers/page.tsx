@@ -5,7 +5,7 @@ import {useApi} from '@/hooks/useAPI';
 import {Button} from '@/components/ui/Button';
 import {Input} from '@/components/ui/Input';
 import {Card} from '@/components/ui/Card';
-import {Table, TBody, TD, TH, THead, TR} from '@/components/ui/Table';
+import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/Table';
 
 type Customer = {
     id: string;
@@ -109,31 +109,31 @@ export default function CustomersPage() {
 
             <Card className="overflow-x-auto">
                 <Table>
-                    <THead>
-                        <TR>
-                            <TH>Name</TH>
-                            <TH>Phone</TH>
-                            <TH>National ID</TH>
-                            <TH>Allergies</TH>
-                            <TH>Insurance</TH>
-                        </TR>
-                    </THead>
-                    <TBody>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead>National ID</TableHead>
+                            <TableHead>Allergies</TableHead>
+                            <TableHead>Insurance</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
                         {items.map((c) => (
-                            <TR key={c.id}>
-                                <TD>
+                            <TableRow key={c.id}>
+                                <TableCell>
                                     {c.firstName} {c.lastName}
-                                </TD>
-                                <TD>{c.phone || '—'}</TD>
-                                <TD>{c.nationalId || '—'}</TD>
-                                <TD>{c.allergies || '—'}</TD>
-                                <TD>
+                                </TableCell>
+                                <TableCell>{c.phone || '—'}</TableCell>
+                                <TableCell>{c.nationalId || '—'}</TableCell>
+                                <TableCell>{c.allergies || '—'}</TableCell>
+                                <TableCell>
                                     {c.defaultInsuranceProvider || 'none'}{' '}
                                     {c.defaultInsuranceMemberId || ''}
-                                </TD>
-                            </TR>
+                                </TableCell>
+                            </TableRow>
                         ))}
-                    </TBody>
+                    </TableBody>
                 </Table>
             </Card>
         </div>
