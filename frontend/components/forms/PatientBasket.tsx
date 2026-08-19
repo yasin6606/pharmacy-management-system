@@ -7,7 +7,7 @@ import {DrugBatch} from '@/types';
 import {Input} from '@/components/ui/Input';
 import {Button} from '@/components/ui/Button';
 import {Spinner} from '@/components/ui/Spinner';
-import {Search, Plus, Minus, X} from 'lucide-react';
+import {Search, Plus, Minus, X, CreditCard, CheckCircle2} from 'lucide-react';
 import {useFranchise} from '@/hooks/useFranchise';
 import {useSalesTabs} from '@/context/SalesTabsContext';
 import {formatIRR} from '@/lib/currency';
@@ -43,7 +43,13 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
 
     const [insuranceProvider, setInsuranceProvider] = useState<InsuranceProvider>('none');
     const [insuranceMemberId, setInsuranceMemberId] = useState('');
-    const coveragePercent = 70; // display default; server applies configured %
+    const coveragePercent = 70;
+
+    // POS state machine: idle → pending → approved
+    const [posReference, setPosReference] = useState('');
+    const [posStatus, setPosStatus] = useState<'idle' | 'pending' | 'approved' | 'failed'>('idle');
+    const [posBusy, setPosBusy] = useState(false);
+    const [posMessage, setPosMessage] = useState('');
 
     const franchiseAmount = useFranchise();
     const branchFranchise = user?.currentBranch?.hasFranchise ?? false;
@@ -57,6 +63,15 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
             .then((data) => setBatches(data ? data.filter((b) => b.count > 0) : []))
             .finally(() => setLoading(false));
     }, [user?.currentBranchId, get]);
+
+    // Reset POS when leaving POS method or changing total
+    useEffect(() => {
+        if (paymentMethod !== 'pos') {
+            setPosReference('');
+            setPosStatus('idle');
+            setPosMessage('');
+        }
+    }, [paymentMethod]);
 
     const filteredBatches = useMemo(() => {
         if (!search.trim()) return batches;
@@ -116,9 +131,48 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
 
     const patientShare = subtotal - insuranceCoverage + franchiseFee;
 
+    const initiatePos = async () => {
+        if (patientShare <= 0 || basket.length === 0) return;
+        setPosBusy(true);
+        setPosMessage('');
+        const data = await post<{
+            referenceCode: string;
+            amount: number;
+            message?: string;
+        }>('/integrations/pos/initiate', {amount: Math.round(patientShare)});
+        setPosBusy(false);
+        if (data?.referenceCode) {
+            setPosReference(data.referenceCode);
+            setPosStatus('pending');
+            setPosMessage(data.message || 'Waiting for terminal approval…');
+        } else {
+            setPosStatus('failed');
+            setPosMessage('Could not start POS session');
+        }
+    };
+
+    const confirmPos = async (approved: boolean) => {
+        if (!posReference) return;
+        setPosBusy(true);
+        const data = await post<{success: boolean; referenceCode: string; message?: string}>(
+            '/integrations/pos/confirm',
+            {referenceCode: posReference, approved}
+        );
+        setPosBusy(false);
+        if (approved && data?.success !== false) {
+            setPosStatus('approved');
+            setPosMessage(data?.message || 'Card payment approved');
+        } else {
+            setPosStatus('failed');
+            setPosMessage(data?.message || 'POS declined');
+            setPosReference('');
+        }
+    };
+
     const handleCompleteSale = async () => {
         if (basket.length === 0) return;
         if (insuranceProvider !== 'none' && !insuranceMemberId.trim()) return;
+        if (paymentMethod === 'pos' && posStatus !== 'approved') return;
 
         setSubmitting(true);
         const items = basket.map((i) => ({
@@ -137,6 +191,9 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
             paymentPayload.customerFamily = customerFamily || undefined;
             paymentPayload.customerPhone = customerPhone || undefined;
         }
+        if (paymentMethod === 'pos') {
+            paymentPayload.posReference = posReference;
+        }
 
         const result = await post('/sales/batch', {items, payment: paymentPayload});
         setSubmitting(false);
@@ -145,6 +202,12 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
             onRemoveTab();
         }
     };
+
+    const canComplete =
+        !submitting &&
+        basket.length > 0 &&
+        !(insuranceProvider !== 'none' && !insuranceMemberId.trim()) &&
+        !(paymentMethod === 'pos' && posStatus !== 'approved');
 
     return (
         <div className="flex flex-col h-full">
@@ -282,6 +345,69 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
                     </div>
                 )}
 
+                {paymentMethod === 'pos' && (
+                    <div className="rounded-xl border border-[var(--color-border)] p-3 space-y-2 bg-[var(--color-muted)]/30">
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                            <CreditCard className="h-4 w-4" />
+                            Card terminal (POS)
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Charge patient share {formatIRR(patientShare, locale)} on the terminal, then confirm.
+                        </p>
+                        {posStatus === 'idle' && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                disabled={posBusy || patientShare <= 0 || basket.length === 0}
+                                onClick={initiatePos}
+                            >
+                                {posBusy ? c('loading') : t('initiatePos')}
+                            </Button>
+                        )}
+                        {posStatus === 'pending' && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-mono">Ref: {posReference}</p>
+                                <p className="text-xs text-amber-600 dark:text-amber-400">{posMessage}</p>
+                                <div className="flex flex-wrap gap-2">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={posBusy}
+                                        onClick={() => confirmPos(true)}
+                                    >
+                                        <CheckCircle2 className="h-4 w-4" />
+                                        Terminal approved
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={posBusy}
+                                        onClick={() => confirmPos(false)}
+                                    >
+                                        Cancel / decline
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                        {posStatus === 'approved' && (
+                            <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                {posMessage} · {posReference}
+                            </p>
+                        )}
+                        {posStatus === 'failed' && (
+                            <div className="space-y-2">
+                                <p className="text-xs text-red-500">{posMessage}</p>
+                                <Button type="button" size="sm" variant="outline" onClick={initiatePos} disabled={posBusy}>
+                                    Retry POS
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 <div className="space-y-2">
                     <h3 className="text-sm font-medium">Patient insurance</h3>
                     <div className="flex flex-wrap gap-2">
@@ -312,9 +438,6 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
                             placeholder="Booklet / electronic ID"
                         />
                     )}
-                    <p className="text-[11px] text-muted-foreground">
-                        Only drugs marked insurance-eligible share cost with the insurer. Others stay patient-paid.
-                    </p>
                 </div>
 
                 <div className="flex justify-between text-xs text-muted-foreground">
@@ -337,17 +460,14 @@ export function PatientBasket({tabId, patientLabel, onRemoveTab}: PatientBasketP
                     <span>Patient pays</span>
                     <span className="tabular-nums">{formatIRR(patientShare, locale)}</span>
                 </div>
-                <Button
-                    className="w-full mt-2"
-                    onClick={handleCompleteSale}
-                    disabled={
-                        submitting ||
-                        basket.length === 0 ||
-                        (insuranceProvider !== 'none' && !insuranceMemberId.trim())
-                    }
-                >
+                <Button className="w-full mt-2" onClick={handleCompleteSale} disabled={!canComplete}>
                     {submitting ? c('saving') : t('completeSale')}
                 </Button>
+                {paymentMethod === 'pos' && posStatus !== 'approved' && basket.length > 0 && (
+                    <p className="text-[11px] text-center text-muted-foreground">
+                        Complete the POS approval before finishing the sale.
+                    </p>
+                )}
             </div>
         </div>
     );
