@@ -10,10 +10,10 @@ import {NotificationOutbox} from '../notifications/entities/NotificationOutbox';
 import {GoodsReceipt} from '../purchasing/entities/GoodsReceipt';
 import {Drug} from '../inventory/entities/Drug';
 import {DrugBatch} from '../inventory/entities/DrugBatch';
-import {StockMovement} from '../inventory/entities/StockMovement';
+import {StockMovement, MovementType} from '../inventory/entities/StockMovement';
 import {ControlledDrugLog} from '../inventory/entities/ControlledDrugLog';
 import {SaleTransaction} from '../sales/entities/SaleTransaction';
-import {paginate} from '../../core/utils/pagination';
+import {toPaginatedResult} from '../../core/utils/pagination';
 import {logger} from '../../core/logger/logger';
 
 export class OpsService {
@@ -69,7 +69,7 @@ export class OpsService {
             skip: (page - 1) * limit,
             take: limit,
         });
-        return paginate(items, total, page, limit);
+        return toPaginatedResult(items, total, page, limit);
     }
 
     // ---- Shifts ----
@@ -112,7 +112,10 @@ export class OpsService {
                 soldDate: Between(start, end) as any,
             },
         });
-        const cashSales = sales.reduce((s, r) => s + Number(r.patientShareAmount || r.totalPrice || 0), 0);
+        const cashSales = sales.reduce(
+            (s, r) => s + Number(r.patientShareAmount || r.totalPrice || 0),
+            0
+        );
         const expected = Math.round(Number(shift.openingFloat) + cashSales);
         const counted = Math.round(closingCashCounted);
         shift.closedAt = end;
@@ -144,7 +147,7 @@ export class OpsService {
             skip: (page - 1) * limit,
             take: limit,
         });
-        return paginate(items, total, page, limit);
+        return toPaginatedResult(items, total, page, limit);
     }
 
     // ---- Invoice numbers ----
@@ -204,7 +207,9 @@ export class OpsService {
     }
 
     // ---- Prescriptions ----
-    async createPrescription(input: Partial<Prescription> & {branchId: string; recordedById: string}) {
+    async createPrescription(
+        input: Partial<Prescription> & {branchId: string; recordedById: string}
+    ) {
         const row = this.prescriptions().create({
             ...input,
             lines: input.lines ?? [],
@@ -219,7 +224,7 @@ export class OpsService {
             skip: (page - 1) * limit,
             take: limit,
         });
-        return paginate(items, total, page, limit);
+        return toPaginatedResult(items, total, page, limit);
     }
 
     // ---- Barcode lookup ----
@@ -271,7 +276,12 @@ export class OpsService {
     }
 
     // ---- Notifications (SMS outbox — provider via settings later) ----
-    async enqueueSms(recipient: string, body: string, purpose?: string, metadata?: Record<string, unknown>) {
+    async enqueueSms(
+        recipient: string,
+        body: string,
+        purpose?: string,
+        metadata?: Record<string, unknown>
+    ) {
         const row = this.outbox().create({
             channel: 'sms',
             recipient,
@@ -281,7 +291,6 @@ export class OpsService {
             status: 'pending',
         });
         const saved = await this.outbox().save(row);
-        // Safe default: mark skipped until SMS gateway configured
         const hasGateway = process.env.SMS_GATEWAY_URL;
         if (!hasGateway) {
             saved.status = 'skipped';
@@ -337,7 +346,7 @@ export class OpsService {
                 const savedBatch = await manager.save(batch);
                 const movement = manager.create(StockMovement, {
                     drugBatchId: savedBatch.id,
-                    type: 'purchase',
+                    type: MovementType.PURCHASE,
                     quantity: line.quantity,
                     toBranchId: input.branchId,
                     performedById: input.receivedById,
@@ -389,7 +398,7 @@ export class OpsService {
             take: limit,
             relations: ['drug'],
         });
-        return paginate(items, total, page, limit);
+        return toPaginatedResult(items, total, page, limit);
     }
 
     // ---- Accounting export (simple CSV rows) ----
@@ -407,13 +416,12 @@ export class OpsService {
             insuranceCoverage: s.insuranceCoverageAmount,
             insuranceProvider: s.insuranceProvider,
             isPaid: s.isPaid,
-            // Simple mapping codes for external accounting packages
             debitAccount: s.paymentMethod === 'credit' ? '1200-AR' : '1100-CASH',
             creditAccount: '4100-SALES',
         }));
     }
 
-    // ---- Admin backup metadata (actual dump is ops responsibility) ----
+    // ---- Admin backup metadata ----
     async backupInfo() {
         return {
             message:
@@ -437,7 +445,13 @@ export class OpsService {
             cur.total += b.count;
             byDrug.set(b.drugId, cur);
         }
-        const suggestions = [];
+        const suggestions: Array<{
+            drugId: string;
+            name: string;
+            onHand: number;
+            minStockLevel: number;
+            suggestedOrderQty: number;
+        }> = [];
         for (const {drug, total} of byDrug.values()) {
             const min = drug.minStockLevel || 0;
             if (min > 0 && total < min) {
