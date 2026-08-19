@@ -1,4 +1,8 @@
-import {PosAdapter} from '../PosAdapter';
+import {
+    PosAdapter,
+    PosTransactionRequest,
+    PosTransactionResult,
+} from '../PosAdapter';
 
 /**
  * BehPardakht / Beh Mellat style terminal adapter.
@@ -9,25 +13,42 @@ import {PosAdapter} from '../PosAdapter';
  * This sandbox never talks to a physical device — suitable for UI/E2E tests.
  */
 export class BehMellatAdapter implements PosAdapter {
-    async initiatePayment(amount: number, terminalId?: string): Promise<{
-        referenceCode: string;
-        status: string;
-    }> {
-        if (amount <= 0) {
-            throw new Error('POS amount must be positive IRR');
+    async initiatePayment(req: PosTransactionRequest): Promise<PosTransactionResult> {
+        const amount = Number(req.amount);
+        if (!Number.isFinite(amount) || amount <= 0) {
+            return {
+                success: false,
+                referenceCode: '',
+                message: 'POS amount must be positive IRR',
+            };
         }
-        const referenceCode = `BM-${terminalId || 'T1'}-${Date.now()}`;
+
+        const terminalId = (req.terminalId || 'T1').trim();
+        const referenceCode = `BM-${terminalId}-${Date.now()}`;
+
         return {
+            success: true,
             referenceCode,
-            status: 'pending',
+            message: req.invoiceId
+                ? `Pending on terminal ${terminalId} for invoice ${req.invoiceId}`
+                : `Pending on terminal ${terminalId}`,
         };
     }
 
-    async checkStatus(referenceCode: string): Promise<{status: string; approved?: boolean}> {
-        // Sandbox: unknown references are pending; callers confirm via /confirm
+    async checkStatus(referenceCode: string): Promise<PosTransactionResult> {
+        // Sandbox: unknown references fail; BM-* refs stay pending until cashier confirms
         if (!referenceCode?.startsWith('BM-')) {
-            return {status: 'unknown', approved: false};
+            return {
+                success: false,
+                referenceCode: referenceCode || '',
+                message: 'Unknown POS reference',
+            };
         }
-        return {status: 'pending'};
+
+        return {
+            success: false,
+            referenceCode,
+            message: 'Awaiting terminal / cashier confirmation',
+        };
     }
 }
