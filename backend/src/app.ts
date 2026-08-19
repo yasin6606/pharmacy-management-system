@@ -23,6 +23,8 @@ import posRoutes from './modules/integrations/pos/pos.routes';
 import purchasingRoutes from './modules/purchasing/purchasing.routes';
 import setupRoutes from './modules/setup/setup.routes';
 import settingsRoutes from './modules/settings/settings.routes';
+import customersRoutes from './modules/customers/customers.routes';
+import opsRoutes from './modules/ops/ops.routes';
 
 export const createApp = () => {
     const app = express();
@@ -46,10 +48,11 @@ export const createApp = () => {
     app.use('/api/v1/integrations/pos', posRoutes);
     app.use('/api/v1/purchasing', purchasingRoutes);
     app.use('/api/v1/settings', settingsRoutes);
+    app.use('/api/v1/customers', customersRoutes);
+    app.use('/api/v1/ops', opsRoutes);
 
     app.get('/health', (_req, res) => res.status(200).json({status: 'ok'}));
 
-    // 404 for unknown API routes
     app.use('/api', (_req, res) => {
         res.status(404).json({
             success: false,
