@@ -1,10 +1,9 @@
-'use client'
 'use client';
 import {useEffect, useState} from 'react';
-import {useTranslations} from 'next-intl';
+import {useTranslations, useLocale} from 'next-intl';
 import {useAuth} from '@/context/AuthContext';
 import {useApi} from '@/hooks/useAPI';
-import {SalesReportItem, Branch, PaginationParams, PaginatedResponse, Sale} from '@/types';
+import {SalesReportItem, Branch, PaginationParams, PaginatedResponse} from '@/types';
 import {Button} from '@/components/ui/Button';
 import {Card, CardContent, CardHeader, CardTitle} from '@/components/ui/Card';
 import {Input} from '@/components/ui/Input';
@@ -12,11 +11,13 @@ import {Select} from '@/components/ui/Select';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/Table';
 import {Spinner} from '@/components/ui/Spinner';
 import {FileText, FileSpreadsheet} from 'lucide-react';
-import {Pagination} from "@/components/ui/Pagination";
+import {Pagination} from '@/components/ui/Pagination';
+import {formatIRR} from '@/lib/currency';
 
 export default function ReportsPage() {
     const reportT = useTranslations('reports');
     const branchT = useTranslations('branches');
+    const locale = useLocale() as 'fa' | 'en';
 
     const {get} = useApi();
     const {user} = useAuth();
@@ -28,16 +29,13 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(false);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loadingBranches, setLoadingBranches] = useState(true);
-    const [page, setPage] = useState<number>(1);
-    const [totalPages, setTotalPages] = useState<number>(1);
-    const limit: number = 10;
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const limit = 10;
 
-    // Fetch all branches for the filter
     const fetchBranches = async () => {
-
         const data = await get<PaginatedResponse<Branch>>('/branches');
-
-        data && setBranches(data.items);
+        if (data) setBranches(data.items);
         setLoadingBranches(false);
     };
 
@@ -47,25 +45,22 @@ export default function ReportsPage() {
 
     const branchOptions = [
         {value: '', label: reportT('allBranches')},
-        ...branches.map(b => ({value: b.id, label: b.name})),
+        ...branches.map((b) => ({value: b.id, label: b.name})),
     ];
 
     const fetchReport = async (currentPage: number = 1) => {
         setLoading(true);
-
         const params: PaginationParams = {page: currentPage, limit};
         if (startDate) params.startDate = startDate;
         if (endDate) params.endDate = endDate;
         if (branchId) params.branchId = branchId;
 
         const data = await get<PaginatedResponse<SalesReportItem>>('/reporting/sales', {params});
-
         if (data) {
             setReportData(data.items);
             setPage(data.page);
             setTotalPages(data.totalPages);
         }
-
         setLoading(false);
     };
 
@@ -76,13 +71,11 @@ export default function ReportsPage() {
         if (branchId) params.append('branchId', branchId);
         params.append('format', format);
 
-        // Use the Axios instance directly with a typed response
         const {api} = await import('@/lib/api');
         const response = await api.get<Blob>(`/reporting/sales/export?${params.toString()}`, {
             responseType: 'blob',
         });
 
-        // Now TypeScript knows response.data is a Blob
         const blob = new Blob([response.data], {
             type: format === 'csv' ? 'text/csv' : 'application/pdf',
         });
@@ -98,9 +91,7 @@ export default function ReportsPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">
-                {reportT('title')}
-            </h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">{reportT('title')}</h1>
 
             <Card>
                 <CardHeader>
@@ -142,7 +133,7 @@ export default function ReportsPage() {
                             disabled={reportData.length === 0}
                             className="text-xs sm:text-sm"
                         >
-                            <FileSpreadsheet className="h-4 w-4 mr-2"/>
+                            <FileSpreadsheet className="h-4 w-4 mr-2" />
                             CSV
                         </Button>
                         <Button
@@ -151,7 +142,7 @@ export default function ReportsPage() {
                             disabled={reportData.length === 0}
                             className="text-xs sm:text-sm"
                         >
-                            <FileText className="h-4 w-4 mr-2"/>
+                            <FileText className="h-4 w-4 mr-2" />
                             PDF
                         </Button>
                     </div>
@@ -160,7 +151,7 @@ export default function ReportsPage() {
 
             {loading ? (
                 <div className="flex justify-center py-8">
-                    <Spinner size="lg"/>
+                    <Spinner size="lg" />
                 </div>
             ) : reportData.length > 0 ? (
                 <Card>
@@ -173,24 +164,29 @@ export default function ReportsPage() {
                                         <TableHead className="text-xs sm:text-sm">{reportT('branch')}</TableHead>
                                         <TableHead className="text-xs sm:text-sm">{reportT('employee')}</TableHead>
                                         <TableHead className="text-xs sm:text-sm">{reportT('drug')}</TableHead>
-                                        <TableHead
-                                            className="text-right text-xs sm:text-sm">{reportT('quantity')}</TableHead>
-                                        <TableHead
-                                            className="text-right text-xs sm:text-sm">{reportT('revenue')}</TableHead>
+                                        <TableHead className="text-right text-xs sm:text-sm">
+                                            {reportT('quantity')}
+                                        </TableHead>
+                                        <TableHead className="text-right text-xs sm:text-sm">
+                                            {reportT('revenue')} (IRR)
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {reportData.map((row, i) => (
                                         <TableRow key={`${row.date}-${row.branch}-${i}`}>
-                                            <TableCell
-                                                className="whitespace-nowrap text-xs sm:text-sm">{row.date}</TableCell>
+                                            <TableCell className="whitespace-nowrap text-xs sm:text-sm">
+                                                {row.date}
+                                            </TableCell>
                                             <TableCell className="text-xs sm:text-sm">{row.branch}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{row.employee}</TableCell>
                                             <TableCell className="text-xs sm:text-sm">{row.drug}</TableCell>
-                                            <TableCell
-                                                className="text-right text-xs sm:text-sm">{row.totalQuantity}</TableCell>
-                                            <TableCell
-                                                className="text-right text-xs sm:text-sm">${row.totalRevenue}</TableCell>
+                                            <TableCell className="text-right text-xs sm:text-sm">
+                                                {row.totalQuantity}
+                                            </TableCell>
+                                            <TableCell className="text-right text-xs sm:text-sm tabular-nums">
+                                                {formatIRR(row.totalRevenue, locale)}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -204,10 +200,8 @@ export default function ReportsPage() {
                     </CardContent>
                 </Card>
             ) : (
-                <p className="text-center text-muted-foreground py-8 text-sm">
-                    {reportT('noData')}
-                </p>
+                <p className="text-center text-muted-foreground py-8 text-sm">{reportT('noData')}</p>
             )}
         </div>
     );
-};
+}
