@@ -17,6 +17,8 @@ import {
     ClipboardList,
     CreditCard,
     Pill,
+    UserRound,
+    Wrench,
 } from 'lucide-react';
 import {useAuth} from '@/context/AuthContext';
 import {ThemeToggle} from './ThemeToggle';
@@ -39,6 +41,8 @@ const navItems = [
         icon: ClipboardList,
         roles: ['junior', 'senior', 'manager', 'accountant'],
     },
+    {href: '/customers', labelKey: 'customers', icon: UserRound, roles: ['junior', 'senior', 'manager', 'accountant']},
+    {href: '/operations', labelKey: 'operations', icon: Wrench, roles: ['senior', 'manager', 'accountant']},
     {href: '/credits', labelKey: 'credits', icon: CreditCard, roles: ['manager', 'accountant']},
     {href: '/reports', labelKey: 'reports', icon: BarChart, roles: ['manager', 'accountant']},
     {href: '/employees', labelKey: 'employees', icon: Users, roles: ['manager']},
