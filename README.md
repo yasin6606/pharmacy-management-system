@@ -1,6 +1,6 @@
 # Pharmacy Management System
 
-A multi-branch pharmacy operations platform designed for real-world use in Iran: inventory with batch expiry, POS sales in **IRR**, role-based staff access, loss reporting, purchasing, insurance-aware checkout, Titak price sync, and Docker-based deployment.
+Multi-branch pharmacy operations platform for Iranian pharmacies: inventory with batch expiry, POS sales in **IRR**, insurance-aware checkout, Titak price sync, role-based staff access, loss reporting, Docker deployment, structured logging, and professional API error contracts.
 
 **Author:** [yasin](https://github.com/yasin6606)  
 **Repository:** [yasin6606/pharmacy-management-system](https://github.com/yasin6606/pharmacy-management-system)
@@ -10,51 +10,57 @@ A multi-branch pharmacy operations platform designed for real-world use in Iran:
 ## Features
 
 ### Core
-- **Multi-branch** warehouses and retail sites with stock transfers
-- **RBAC:** `junior` · `senior` · `manager` · `accountant`
-- Employee sessions, branch assignment history, JWT + bcrypt auth
-- First-run **setup** to create the manager account
+- Multi-branch warehouses & retail sites with stock transfers
+- RBAC: `junior` · `senior` · `manager` · `accountant`
+- Employee sessions, branch history, JWT + bcrypt
+- First-run **setup** wizard for the manager account
 
 ### Inventory
-- Drug catalog with search, edit, and safe delete (blocked while stock remains)
-- Batch tracking: expiry, quantity, offer flag, purchase/selling price
-- Stock movements: transfer · sale · (adjustment path)
-- **Titak code** per drug for external price updates
-- **Insurance eligibility** and formulary code per drug
-- Catalog stats and branch-level stock views
+- Drug catalog: search, create, edit, safe delete (blocked while stock remains)
+- Batches: expiry, quantity, offer flag, purchase/selling price (IRR)
+- Stock movements: transfer · sale
+- **Titak code** + **Update price** via Titak API (key in Settings)
+- **Insurance eligible** flag + formulary code per drug
+- Catalog stats for dashboard KPIs
 
 ### Sales & POS
 - Multi-tab patient baskets
-- Payment: cash · transfer · POS · credit
-- **Patient insurance** at checkout: Tamin · Salamat · Mosalah · Other
-  - Only **insurance-eligible** lines share cost with the insurer
-  - Configurable default coverage % (Settings)
+- Payment: cash · transfer · **POS (initiate → terminal confirm → complete)** · credit
+- Patient insurance: Tamin · Salamat · Mosalah · Other  
+  - Only eligible drugs share cost with insurer  
+  - Configurable coverage % in Settings  
   - Member ID required when insurance is applied
-- Currency display: **Iranian Rial (IRR)**
+- Currency: **Iranian Rial (IRR)** across UI
+- Credit baskets: group, search, mark paid
 
 ### Operations
 - Loss reports (create → approve/reject)
-- Purchasing, suppliers, OCR hooks
-- Reporting with CSV/PDF export paths
-- Franchise fee per branch (optional)
+- Purchasing / suppliers / OCR hooks
+- Sales reporting + CSV/PDF export
+- Optional franchise fee per branch
 
 ### Integrations (Settings → Integrations)
 | Key | Purpose |
 |-----|---------|
-| `titak_api_key` / `titak_base_url` | Titak drug price API |
-| `insurance_tamin_api_key` | تامین اجتماعی |
-| `insurance_salamat_api_key` | سلامت |
-| `insurance_mosalah_api_key` | نیروهای مسلح |
-| `insurance_default_coverage_percent` | Default insurer share (e.g. `70`) |
+| `titak_api_key` / `titak_base_url` | Titak price API |
+| `insurance_*_api_key` | Tamin / Salamat / Mosalah (your contracts) |
+| `insurance_default_coverage_percent` | Default insurer share |
 
-Secrets are stored server-side and **masked** in the UI. Leave a secret field empty when saving to keep the existing value.
-
-> Iranian insurer and Titak keys are issued under your pharmacy contracts. This project does **not** ship third-party API keys.
+Secrets are stored server-side and **masked** in the UI.
 
 ### UX
-- **i18n:** English + Persian (`next-intl`, always-locale prefix)
-- **Theme:** light / dark (`next-themes`) — available on **login**, **setup**, and the dashboard sidebar
-- Glass-style UI, responsive layout, role-gated navigation
+- **i18n:** English + Persian (`next-intl`)
+- **Theme:** light / dark on login, setup, and dashboard
+- **Language** switcher with icon
+- Glass-style responsive UI
+
+### Reliability
+- Structured **Winston** logging + HTTP access logs with **request IDs**
+- Unified **AppError** API responses (`code`, `message`, `requestId`)
+- Frontend toasts with severity, dedupe, and optional request ref
+- API 404 handler; Zod validation errors
+
+See **[docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md)**.
 
 ---
 
@@ -62,11 +68,11 @@ Secrets are stored server-side and **masked** in the UI. Leave a secret field em
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | Next.js (App Router), React, TypeScript, Tailwind CSS, next-intl, next-themes, Zod, react-hook-form |
-| Backend | Express, TypeScript, TypeORM, Awilix, Zod, Winston, JWT, bcrypt |
+| Frontend | Next.js, React, TypeScript, Tailwind, next-intl, next-themes, Zod |
+| Backend | Express, TypeScript, TypeORM, Winston, Zod, JWT, bcrypt |
 | Database | PostgreSQL 16 |
-| Cache | Redis (optional, login rate limits) |
-| Infrastructure | Docker Compose, Nginx reverse proxy |
+| Cache | Redis (optional rate limits) |
+| Infra | Docker Compose, Nginx |
 
 ---
 
@@ -74,13 +80,16 @@ Secrets are stored server-side and **masked** in the UI. Leave a secret field em
 
 ```
 pharmacy-management-system/
-├── backend/                 # Express API
-├── frontend/                # Next.js app
+├── backend/
+├── frontend/
+├── docs/
+│   └── ERROR_HANDLING_AND_LOGGING.md
 ├── infrastructure/
 │   ├── docker-compose.yaml
 │   ├── nginx.conf
 │   ├── .env.example
-│   └── deploy/              # Oracle Cloud bootstrap notes/scripts
+│   ├── README.md
+│   └── deploy/          # Oracle Cloud bootstrap & update
 └── README.md
 ```
 
@@ -89,133 +98,106 @@ pharmacy-management-system/
 ## Getting Started
 
 ### Prerequisites
-- Node.js ≥ 20 (22 recommended)
-- Docker & Docker Compose
-- Git
+Node.js ≥ 20 · Docker & Docker Compose · Git
 
-### Clone
+### Clone & Docker
 
 ```bash
 git clone https://github.com/yasin6606/pharmacy-management-system.git
-cd pharmacy-management-system
-```
-
-### Run with Docker (recommended)
-
-```bash
-cd infrastructure
+cd pharmacy-management-system/infrastructure
 cp .env.example .env
-# Set strong POSTGRES_PASSWORD and JWT_SECRET
-# For first schema create: TYPEORM_SYNCHRONIZE=true
-
+# set POSTGRES_PASSWORD, JWT_SECRET
+# first schema: TYPEORM_SYNCHRONIZE=true
 docker compose up --build -d
 ```
 
-| Service | URL |
-|---------|-----|
-| App (Nginx) | http://localhost |
+| Access | URL |
+|--------|-----|
+| App | http://localhost |
 | Health | http://localhost/health |
-| API (via proxy) | http://localhost/api/v1 |
+| API | http://localhost/api/v1 |
 
-Postgres and Redis stay internal by default.
-
-#### Rebuild only frontend or backend after pulls
+Rebuild after pulls:
 
 ```bash
-cd infrastructure
-docker compose up -d --build frontend
-docker compose up -d --build backend
+docker compose up -d --build backend frontend
 ```
 
-### Local development (without full Docker)
-
-**Backend**
+### Local dev
 
 ```bash
-cd backend
-npm install
-npm run dev   # :3001
+# backend → :3001
+cd backend && npm install && npm run dev
+
+# frontend → :3000  (NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1)
+cd frontend && npm install && npm run dev
 ```
 
-**Frontend**
-
-```bash
-cd frontend
-# NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
-npm install
-npm run dev   # :3000
-```
-
-### First-time setup
-
-1. Open `/en/setup` or `/fa/setup` (language/theme toggles are on the page)
-2. Create the manager account
-3. Log in at `/en/login` or `/fa/login`
-4. Add branches, drugs (Titak code + insurance flags), batches, then sell
+### First login
+1. `/en/setup` or `/fa/setup` (theme + language on page)
+2. Create manager → `/login`
+3. Branches → drugs (Titak / insurance flags) → batches → sales
 
 ---
 
-## Environment Variables
+## Environment
 
 ### Docker (`infrastructure/.env`)
+See `.env.example`. Required: `POSTGRES_PASSWORD`, `JWT_SECRET`.
 
-Copy from `.env.example`. Required: `POSTGRES_PASSWORD`, `JWT_SECRET`.
-
-### Backend
-
+### Backend extras
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL URL |
-| `JWT_SECRET` | Required in production |
-| `JWT_EXPIRES_IN` | e.g. `7d` |
-| `REDIS_URL` | Optional shared rate limits |
-| `TYPEORM_SYNCHRONIZE` | `true` only for local/bootstrap |
+| `LOG_LEVEL` | `debug` · `info` · `warn` · `error` |
+| `LOG_TO_FILES` | `true` to write rotating log files |
 | `TITAK_API_KEY` | Optional env fallback; prefer Settings UI |
-
-### Frontend
-
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | `/api/v1` behind Nginx, or full URL in local dev |
+| `TYPEORM_SYNCHRONIZE` | Bootstrap only |
 
 ---
 
-## API Overview
+## API overview
 
 Prefix: `/api/v1`
 
-| Module | Base path |
-|--------|-----------|
-| Setup | `/setup` |
-| Auth | `/auth` |
-| Employees | `/employees` |
-| Branches | `/branches` |
-| Inventory | `/inventory` (drugs, batches, catalog/stats, transfer) |
-| Sales | `/sales`, `/sales/summary`, `/sales/batch` |
-| Loss reports | `/loss-reports` |
-| Reporting | `/reporting` |
-| Purchasing | `/purchasing` |
-| Settings | `/settings/franchise`, `/settings/integrations` |
+| Area | Paths |
+|------|--------|
+| Setup / Auth | `/setup`, `/auth` |
+| Staff / Branches | `/employees`, `/branches` |
+| Inventory | `/inventory/*`, `/inventory/catalog/stats` |
+| Sales | `/sales`, `/sales/summary`, `/sales/batch`, basket pay |
+| POS | `/integrations/pos/initiate`, `/confirm`, `/status/:ref` |
 | Titak | `/integrations/titak/...` |
+| Settings | `/settings/franchise`, `/settings/integrations` |
+| Reporting / Loss | `/reporting`, `/loss-reports` |
 
-Health: `GET /health`
+Error shape:
+
+```json
+{
+  "success": false,
+  "code": "NOT_FOUND",
+  "message": "Drug not found",
+  "requestId": "uuid"
+}
+```
 
 ---
 
-## Scripts
+## Security
 
-**Backend:** `npm run dev` · `build` · `start` · `test` · `migration:run`  
-**Frontend:** `npm run dev` · `build` · `start` · `test`
+- bcrypt · JWT · RBAC · rate limiting (Redis when available)
+- Helmet · Zod validation · secrets via env / integration table (masked)
+- DB/Redis not published by default
 
 ---
 
-## Security Notes
+## Documentation
 
-- bcrypt passwords, JWT + RBAC
-- Login rate limiting (Redis when available)
-- Helmet; Zod validation on inputs
-- Integration secrets masked in list APIs
-- DB/Redis not published on the host by default
+| Doc | Content |
+|-----|---------|
+| [docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md) | Errors, request IDs, logging |
+| [infrastructure/README.md](./infrastructure/README.md) | Compose architecture |
+| [infrastructure/deploy/oracle-cloud.md](./infrastructure/deploy/oracle-cloud.md) | Free ARM deploy |
 
 ---
 
@@ -225,4 +207,4 @@ Private / proprietary unless stated otherwise by the author.
 
 ---
 
-**Built for modern pharmacy operations in IRR, with EN/FA and light/dark themes.**
+**Built for modern pharmacy operations — IRR, EN/FA, light/dark, observable APIs.**
