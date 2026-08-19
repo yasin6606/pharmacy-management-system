@@ -1,4 +1,4 @@
-import {Entity, PrimaryGeneratedColumn, Column, OneToMany} from 'typeorm';
+import {Entity, PrimaryGeneratedColumn, Column, OneToMany, Index} from 'typeorm';
 import {DrugBatch} from './DrugBatch';
 
 @Entity('drugs')
@@ -32,6 +32,23 @@ export class Drug {
     /** Optional national / formulary code for insurer claims */
     @Column({name: 'insurance_code', type: 'varchar', nullable: true})
     insuranceCode: string | null;
+
+    /** Barcode / GTIN for scanner lookup at POS */
+    @Index({unique: false})
+    @Column({name: 'barcode', type: 'varchar', nullable: true})
+    barcode: string | null;
+
+    /** Controlled / special-list drug requiring extra logging */
+    @Column({name: 'is_controlled', type: 'boolean', default: false})
+    isControlled: boolean;
+
+    /** Soft reorder threshold (units across branch context) */
+    @Column({name: 'min_stock_level', type: 'int', default: 0})
+    minStockLevel: number;
+
+    /** Free-text notes e.g. storage conditions */
+    @Column({name: 'notes', type: 'text', nullable: true})
+    notes: string | null;
 
     @OneToMany(() => DrugBatch, (batch) => batch.drug)
     batches: DrugBatch[];
