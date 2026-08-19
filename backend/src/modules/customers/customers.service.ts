@@ -2,7 +2,7 @@ import {Repository, ILike} from 'typeorm';
 import {AppDataSource} from '../../core/config/database';
 import {Customer} from './entities/Customer';
 import {AppError} from '../../core/errors/AppError';
-import {paginate} from '../../core/utils/pagination';
+import {toPaginatedResult} from '../../core/utils/pagination';
 
 export class CustomersService {
     private repo(): Repository<Customer> {
@@ -24,7 +24,7 @@ export class CustomersService {
             skip: (page - 1) * limit,
             take: limit,
         });
-        return paginate(items, total, page, limit);
+        return toPaginatedResult(items, total, page, limit);
     }
 
     async get(id: string) {
