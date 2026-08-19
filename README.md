@@ -5,6 +5,8 @@ Multi-branch pharmacy operations platform for Iranian pharmacies: inventory with
 **Author:** [yasin](https://github.com/yasin6606)  
 **Repository:** [yasin6606/pharmacy-management-system](https://github.com/yasin6606/pharmacy-management-system)
 
+📘 **Full catalog:** [docs/PROJECT_CATALOG.md](./docs/PROJECT_CATALOG.md) — complete technical & product reference (features, architecture, design, API, ops).
+
 ---
 
 ## Features
@@ -83,13 +85,14 @@ pharmacy-management-system/
 ├── backend/
 ├── frontend/
 ├── docs/
+│   ├── PROJECT_CATALOG.md
 │   └── ERROR_HANDLING_AND_LOGGING.md
 ├── infrastructure/
 │   ├── docker-compose.yaml
 │   ├── nginx.conf
 │   ├── .env.example
 │   ├── README.md
-│   └── deploy/          # Oracle Cloud bootstrap & update
+│   └── deploy/
 └── README.md
 ```
 
@@ -195,6 +198,7 @@ Error shape:
 
 | Doc | Content |
 |-----|---------|
+| **[docs/PROJECT_CATALOG.md](./docs/PROJECT_CATALOG.md)** | **Full technical & product catalog** |
 | [docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md) | Errors, request IDs, logging |
 | [infrastructure/README.md](./infrastructure/README.md) | Compose architecture |
 | [infrastructure/deploy/oracle-cloud.md](./infrastructure/deploy/oracle-cloud.md) | Free ARM deploy |
