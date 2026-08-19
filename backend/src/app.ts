@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import 'reflect-metadata';
 
 import {errorHandler} from './core/errors/errorHandler';
+import {requestLogger} from './core/middleware/requestLogger';
 
 import authRoutes from './modules/auth/auth.routes';
 import employeesRoutes from './modules/employees/employees.routes';
@@ -30,6 +31,7 @@ export const createApp = () => {
     app.use(cors());
     app.use(express.json({limit: '1mb'}));
     app.use(cookieParser());
+    app.use(requestLogger);
 
     app.use('/api/v1', setupRoutes);
     app.use('/api/v1/auth', authRoutes);
@@ -46,6 +48,15 @@ export const createApp = () => {
     app.use('/api/v1/settings', settingsRoutes);
 
     app.get('/health', (_req, res) => res.status(200).json({status: 'ok'}));
+
+    // 404 for unknown API routes
+    app.use('/api', (_req, res) => {
+        res.status(404).json({
+            success: false,
+            code: 'NOT_FOUND',
+            message: 'API route not found',
+        });
+    });
 
     app.use(errorHandler);
 
