@@ -46,7 +46,9 @@
     "employees": "Employees",
     "branches": "Branches",
     "lossReports": "Loss Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "customers": "Customers",
+    "operations": "Operations"
   },
   "dashboard": {
     "welcome": "Welcome",
