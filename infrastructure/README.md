@@ -19,10 +19,11 @@ Internal network only:
 | **Nginx as sole public entry** | TLS termination later, path routing, one attack surface |
 | **No published Postgres/Redis ports** | DB is not reachable from the internet by default |
 | **Redis in the stack** | Shared login rate-limits if you scale `backend` replicas |
-| **Postgres 16** | Supported release (13 is EOL) |
+| **Postgres 16** | Supported release |
 | **Secrets via `.env`** | No passwords/JWT in git |
 | **`TYPEORM_SYNCHRONIZE=false`** | Schema changes go through migrations in real deploys |
 | **Healthchecks** | Compose waits until services are actually ready |
+| **Structured logs** | Backend emits requestId + duration; use `docker compose logs -f backend` |
 
 ## Quick start (local / any VPS)
 
@@ -38,6 +39,23 @@ Open http://localhost (or `HTTP_PORT` from `.env`).
 
 First visit → **Setup** page → create manager → login.
 
+## Logging & debugging
+
+```bash
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f nginx
+```
+
+Optional backend env (in compose service environment):
+
+- `LOG_LEVEL=debug|info|warn|error`
+- `LOG_TO_FILES=true` — write rotating files inside the container (prefer stdout in Docker)
+
+Each API error includes `requestId`; the same id is on response header `x-request-id`.
+
+See [docs/ERROR_HANDLING_AND_LOGGING.md](../docs/ERROR_HANDLING_AND_LOGGING.md).
+
 ## Free cloud deploy (Oracle Always Free)
 
 Full walkthrough for Ampere A1 (ARM, 2 OCPU / 12 GB):
@@ -51,16 +69,11 @@ Scripts:
 | `deploy/bootstrap-oracle.sh` | Install Docker + UFW on Ubuntu ARM |
 | `deploy/update.sh` | `git pull` + rebuild stack |
 
-```bash
-# on the VM after SSH
-curl -fsSL https://raw.githubusercontent.com/yasin6606/pharmacy-management-system/main/infrastructure/deploy/bootstrap-oracle.sh | bash
-```
-
 ## Useful commands
 
 ```bash
 docker compose ps
-docker compose logs -f backend
+docker compose up -d --build backend frontend
 docker compose down          # keep volumes
 docker compose down -v       # wipe DB + Redis data
 ```
