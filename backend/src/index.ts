@@ -1,13 +1,5 @@
 /**
  * Process entrypoint.
- *
- * 1. Connect to PostgreSQL via TypeORM
- * 2. Create the Express app
- * 3. Start listening
- * 4. Schedule background jobs (expiration alerts)
- *
- * Fail-fast: any startup error is logged and the process exits with code 1
- * so orchestrators (Docker, k8s) can restart / alert.
  */
 import {createApp} from './app';
 import {AppDataSource} from './core/config/database';
@@ -18,21 +10,36 @@ import {startExpirationAlertJob} from './modules/inventory/jobs/expirationAlertJ
 const startServer = async () => {
     try {
         await AppDataSource.initialize();
-        logger.info('Database connected');
+        logger.info('Database connected', {synchronize: AppDataSource.options.synchronize});
 
         const app = createApp();
         const port = Number(env.PORT) || 3001;
 
         app.listen(port, () => {
-            logger.info(`Server running on port ${port} (${env.NODE_ENV})`);
+            logger.info('Server listening', {port, env: env.NODE_ENV});
         });
 
-        // Daily 09:00 cron — logs batches nearing expiry
         startExpirationAlertJob();
     } catch (error) {
-        logger.error('Failed to start server:', error);
+        logger.error('Failed to start server', {
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+        });
         process.exit(1);
     }
 };
+
+// Process-level safety nets
+process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled promise rejection', {
+        reason: reason instanceof Error ? reason.message : String(reason),
+        stack: reason instanceof Error ? reason.stack : undefined,
+    });
+});
+
+process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception', {message: err.message, stack: err.stack});
+    process.exit(1);
+});
 
 startServer();
