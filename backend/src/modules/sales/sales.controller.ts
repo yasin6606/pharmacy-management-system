@@ -8,14 +8,19 @@ export class SalesController {
     batchSale = asyncHandler(async (req: Request, res: Response) => {
         const {items, payment} = req.body;
 
-        const result: any = await this.salesService.recordBatchSale(
+        // Returns sale summary object (basketId, insurance shares, currency) — not a boolean
+        const saleResult = await this.salesService.recordBatchSale(
             items,
             req.user.userId,
             req.user.branchId,
             payment || {method: 'cash'}
         );
 
-        res.status(201).json({success: true, data: result, message: 'Batch sale completed'});
+        res.status(201).json({
+            success: true,
+            data: saleResult,
+            message: 'Batch sale completed',
+        });
     });
 
     private buildFilters(req: Request) {
