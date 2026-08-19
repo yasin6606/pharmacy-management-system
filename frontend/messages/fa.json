@@ -49,7 +49,9 @@
     "employees": "کارمندان",
     "branches": "شعب",
     "lossReports": "گزارش کسری",
-    "settings": "تنظیمات"
+    "settings": "تنظیمات",
+    "customers": "مشتریان",
+    "operations": "عملیات"
   },
   "dashboard": {
     "welcome": "خوش آمدید",
