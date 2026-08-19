@@ -13,6 +13,7 @@ export interface PaginatedResult<T> {
     totalPages: number;
 }
 
+/** Paginate a TypeORM SelectQueryBuilder. */
 export async function paginate<T extends ObjectLiteral>(
     queryBuilder: SelectQueryBuilder<T>,
     options: PaginationOptions = {}
@@ -28,6 +29,24 @@ export async function paginate<T extends ObjectLiteral>(
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limit) || 0,
+    };
+}
+
+/** Build a PaginatedResult from an already-fetched page (e.g. findAndCount). */
+export function toPaginatedResult<T>(
+    items: T[],
+    total: number,
+    page = 1,
+    limit = 10
+): PaginatedResult<T> {
+    const safePage = Math.max(1, page || 1);
+    const safeLimit = Math.min(100, Math.max(1, limit || 10));
+    return {
+        items,
+        total,
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit) || 0,
     };
 }
