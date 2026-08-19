@@ -1,30 +1,43 @@
 /**
  * Operational application error — safe to surface to API clients.
  * Unexpected errors should remain generic 500s (see errorHandler).
+ *
+ * Backward compatible:
+ *   new AppError(message, statusCode)
+ *   new AppError(message, statusCode, false) // isOperational
+ *   new AppError(message, statusCode, { code, details, isOperational })
  */
 export class AppError extends Error {
     public readonly statusCode: number;
     public readonly isOperational: boolean;
-    /** Machine-readable code for clients (e.g. VALIDATION_ERROR, NOT_FOUND) */
     public readonly code: string;
-    /** Optional non-sensitive context for logs / debug responses */
     public readonly details?: Record<string, unknown>;
 
     constructor(
         message: string,
         statusCode: number = 400,
-        options?: {
-            isOperational?: boolean;
-            code?: string;
-            details?: Record<string, unknown>;
-        }
+        optionsOrOperational?:
+            | boolean
+            | {
+                  isOperational?: boolean;
+                  code?: string;
+                  details?: Record<string, unknown>;
+              }
     ) {
         super(message);
         this.name = 'AppError';
         this.statusCode = statusCode;
-        this.isOperational = options?.isOperational ?? true;
-        this.code = options?.code ?? defaultCode(statusCode);
-        this.details = options?.details;
+
+        if (typeof optionsOrOperational === 'boolean') {
+            this.isOperational = optionsOrOperational;
+            this.code = defaultCode(statusCode);
+            this.details = undefined;
+        } else {
+            this.isOperational = optionsOrOperational?.isOperational ?? true;
+            this.code = optionsOrOperational?.code ?? defaultCode(statusCode);
+            this.details = optionsOrOperational?.details;
+        }
+
         Error.captureStackTrace(this, this.constructor);
     }
 
