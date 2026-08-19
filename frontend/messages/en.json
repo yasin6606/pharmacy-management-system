@@ -22,7 +22,21 @@
     "yes": "Yes",
     "no": "No",
     "notFound": "Page not found",
-    "create": "Create"
+    "create": "Create",
+    "unauthorized": "Unauthorized",
+    "error": "An error occurred",
+    "processing": "Processing...",
+    "retry": "Retry",
+    "close": "Close",
+    "name": "Name",
+    "phone": "Phone",
+    "notes": "Notes",
+    "none": "None",
+    "all": "All",
+    "refresh": "Refresh",
+    "lookup": "Lookup",
+    "open": "Open",
+    "closed": "Closed"
   },
   "auth": {
     "login": "Login",
@@ -111,7 +125,11 @@
     "quantity": "Quantity",
     "processing": "Processing...",
     "exchangedQuantity": "Exchanged Quantity",
-    "viewDetails": "View Details"
+    "viewDetails": "View Details",
+    "barcode": "Barcode",
+    "minStockLevel": "Min stock level",
+    "insuranceEligible": "Insurance eligible",
+    "controlled": "Controlled substance"
   },
   "sales": {
     "salesRecords": "Sales Records",
@@ -164,7 +182,32 @@
     "customerPhonePlaceholder": "0912...",
     "posInitiateMessage": "POS transaction initiated (simulated)",
     "initiatePos": "Initiate POS",
-    "posDescription": "Click to start POS payment. In production, this will communicate with the bank terminal."
+    "posDescription": "Click to start POS payment. In production, this will communicate with the bank terminal.",
+    "posTerminal": "Card terminal (POS)",
+    "posChargePatientShare": "Charge patient share on the terminal, then confirm.",
+    "posWaiting": "Waiting for terminal approval…",
+    "posApproved": "Card payment approved",
+    "posDeclined": "POS declined",
+    "posCouldNotStart": "Could not start POS session",
+    "posTerminalApproved": "Terminal approved",
+    "posCancelDecline": "Cancel / decline",
+    "posRetry": "Retry POS",
+    "posCompleteBeforeSale": "Complete the POS approval before finishing the sale.",
+    "patientInsurance": "Patient insurance",
+    "insuranceMemberId": "Insurance member ID",
+    "insuranceMemberIdPlaceholder": "Booklet / electronic ID",
+    "insuranceShare": "Insurance share",
+    "patientPays": "Patient pays",
+    "insuranceOk": "Insurance OK",
+    "cashOnly": "Cash only",
+    "stockLabel": "Stock",
+    "insuranceProviders": {
+      "none": "None",
+      "tamin": "Tamin",
+      "salamat": "Salamat",
+      "mosalah": "Mosalah",
+      "other": "Other"
+    }
   },
   "credits": {
     "title": "Credit Sales",
@@ -268,6 +311,43 @@
     "reviewedBy": "Reviewed By",
     "reviewedAt": "Reviewed At"
   },
+  "customers": {
+    "title": "Customers / Patients",
+    "addCustomer": "Add customer",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "nationalId": "National ID",
+    "allergies": "Allergies",
+    "insuranceMemberId": "Insurance member ID",
+    "insurance": "Insurance",
+    "searchPlaceholder": "Search name / phone / national id",
+    "name": "Name",
+    "noCustomers": "No customers found"
+  },
+  "operations": {
+    "title": "Operations",
+    "cashShift": "Cash shift",
+    "status": "Status",
+    "opened": "Opened",
+    "openingFloat": "Opening float",
+    "closingCashCounted": "Closing cash counted (IRR)",
+    "closeShift": "Close shift",
+    "openShift": "Open shift",
+    "openingFloatPlaceholder": "Opening float (IRR)",
+    "barcodeLookup": "Barcode lookup",
+    "barcodePlaceholder": "Scan or type barcode",
+    "lookup": "Lookup",
+    "stockAlerts": "Stock alerts",
+    "lowStock": "Low stock",
+    "nearExpiry": "Near expiry",
+    "reorderSuggestions": "Reorder suggestions",
+    "onHand": "on hand",
+    "orderApprox": "order ~",
+    "noSuggestions": "No suggestions",
+    "auditLog": "Audit log (recent)",
+    "backupInfo": "Backup info"
+  },
   "roles": {
     "junior": "Junior Employee",
     "senior": "Senior Employee",
@@ -303,6 +383,21 @@
     "franchiseBranchListTitle": "Franchise per Branch",
     "franchiseBranchListDescription": "Enable franchise fee for specific branches. The fee is applied once per sale in the selected branches.",
     "warehouse": "Warehouse",
-    "noBranches": "No branches found"
+    "noBranches": "No branches found",
+    "integrationsTitle": "Integrations (Titak & Insurance)",
+    "integrationsDescription": "Paste API keys from your contracts. Secrets are stored server-side and masked in the UI. Leave a secret field blank to keep the existing value.",
+    "integrationsSaved": "Integration settings saved",
+    "integrationsHint": "Iranian insurer APIs (Tamin, Salamat, Mosalah) are contract-based — keys are issued only to licensed pharmacies by each organization. This app cannot provide those keys. After you paste them here, claim/validation adapters can use them.",
+    "configured": "configured",
+    "unchangedIfEmpty": "•••• (unchanged if empty)",
+    "pasteKey": "Paste key",
+    "integrationLabels": {
+      "titak_api_key": "Titak API key",
+      "titak_base_url": "Titak base URL",
+      "insurance_tamin_api_key": "Tamin (Social Security) API key",
+      "insurance_salamat_api_key": "Salamat API key",
+      "insurance_mosalah_api_key": "Mosalah (Armed Forces) API key",
+      "insurance_default_coverage_percent": "Default insurer coverage % (0–100)"
+    }
   }
 }
