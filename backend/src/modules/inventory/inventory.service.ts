@@ -15,7 +15,9 @@ export class InventoryService {
         if (!data.company?.trim()) throw new AppError('Company is required', 400);
 
         const brand = data.brand?.trim() ? data.brand.trim() : null;
-        const enteringDate = data.enteringDate ? new Date(data.enteringDate as unknown as string) : new Date();
+        const enteringDate = data.enteringDate
+            ? new Date(data.enteringDate as unknown as string)
+            : new Date();
 
         const drug = this.drugRepo.create({
             name: data.name.trim(),
@@ -25,6 +27,10 @@ export class InventoryService {
             titakCode: data.titakCode?.trim() || null,
             insuranceEligible: Boolean(data.insuranceEligible),
             insuranceCode: data.insuranceCode?.trim() || null,
+            barcode: data.barcode?.trim() || null,
+            isControlled: Boolean(data.isControlled),
+            minStockLevel: Math.max(0, Number(data.minStockLevel) || 0),
+            notes: data.notes?.trim() || null,
         });
         return this.drugRepo.save(drug);
     }
@@ -67,6 +73,18 @@ export class InventoryService {
         }
         if (data.insuranceCode !== undefined) {
             drug.insuranceCode = data.insuranceCode ? String(data.insuranceCode).trim() : null;
+        }
+        if (data.barcode !== undefined) {
+            drug.barcode = data.barcode ? String(data.barcode).trim() : null;
+        }
+        if (data.isControlled !== undefined) {
+            drug.isControlled = Boolean(data.isControlled);
+        }
+        if (data.minStockLevel !== undefined) {
+            drug.minStockLevel = Math.max(0, Number(data.minStockLevel) || 0);
+        }
+        if (data.notes !== undefined) {
+            drug.notes = data.notes ? String(data.notes).trim() : null;
         }
 
         return this.drugRepo.save(drug);
