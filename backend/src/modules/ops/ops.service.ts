@@ -16,6 +16,13 @@ import {SaleTransaction} from '../sales/entities/SaleTransaction';
 import {toPaginatedResult} from '../../core/utils/pagination';
 import {logger} from '../../core/logger/logger';
 
+function requireBranchId(branchId?: string | null): string {
+    if (!branchId?.trim()) {
+        throw AppError.badRequest('Branch is required. Assign a branch to your account or pass branchId.');
+    }
+    return branchId.trim();
+}
+
 export class OpsService {
     private shifts(): Repository<CashShift> {
         return AppDataSource.getRepository(CashShift);
@@ -74,10 +81,12 @@ export class OpsService {
 
     // ---- Shifts ----
     async openShift(branchId: string, employeeId: string, openingFloat = 0) {
-        const open = await this.shifts().findOne({where: {branchId, status: 'open'}});
+        const bid = requireBranchId(branchId);
+        if (!employeeId) throw AppError.unauthorized();
+        const open = await this.shifts().findOne({where: {branchId: bid, status: 'open'}});
         if (open) throw AppError.conflict('An open shift already exists for this branch');
         const shift = this.shifts().create({
-            branchId,
+            branchId: bid,
             openedById: employeeId,
             openingFloat: Math.round(openingFloat),
             status: 'open',
@@ -88,7 +97,7 @@ export class OpsService {
             action: 'shift.open',
             entityType: 'CashShift',
             entityId: saved.id,
-            metadata: {branchId, openingFloat},
+            metadata: {branchId: bid, openingFloat},
         });
         return saved;
     }
@@ -117,7 +126,7 @@ export class OpsService {
             0
         );
         const expected = Math.round(Number(shift.openingFloat) + cashSales);
-        const counted = Math.round(closingCashCounted);
+        const counted = Math.round(Number(closingCashCounted) || 0);
         shift.closedAt = end;
         shift.closedById = employeeId;
         shift.closingCashCounted = counted;
@@ -137,12 +146,14 @@ export class OpsService {
     }
 
     async currentShift(branchId: string) {
-        return this.shifts().findOne({where: {branchId, status: 'open'}});
+        const bid = requireBranchId(branchId);
+        return this.shifts().findOne({where: {branchId: bid, status: 'open'}});
     }
 
     async listShifts(branchId: string, page = 1, limit = 20) {
+        const bid = requireBranchId(branchId);
         const [items, total] = await this.shifts().findAndCount({
-            where: {branchId},
+            where: {branchId: bid},
             order: {openedAt: 'DESC'},
             skip: (page - 1) * limit,
             take: limit,
@@ -152,14 +163,15 @@ export class OpsService {
 
     // ---- Invoice numbers ----
     async nextInvoiceNumber(branchId: string, year = new Date().getFullYear()) {
+        const bid = requireBranchId(branchId);
         return AppDataSource.transaction(async (manager) => {
             let seq = await manager.findOne(InvoiceSequence, {
-                where: {branchId, year},
+                where: {branchId: bid, year},
                 lock: {mode: 'pessimistic_write'},
             });
             if (!seq) {
                 seq = manager.create(InvoiceSequence, {
-                    branchId,
+                    branchId: bid,
                     year,
                     lastNumber: 0,
                     prefix: `INV-${year}-`,
@@ -210,16 +222,19 @@ export class OpsService {
     async createPrescription(
         input: Partial<Prescription> & {branchId: string; recordedById: string}
     ) {
+        const branchId = requireBranchId(input.branchId);
         const row = this.prescriptions().create({
             ...input,
+            branchId,
             lines: input.lines ?? [],
         });
         return this.prescriptions().save(row);
     }
 
     async listPrescriptions(branchId: string, page = 1, limit = 20) {
+        const bid = requireBranchId(branchId);
         const [items, total] = await this.prescriptions().findAndCount({
-            where: {branchId},
+            where: {branchId: bid},
             order: {createdAt: 'DESC'},
             skip: (page - 1) * limit,
             take: limit,
@@ -229,8 +244,9 @@ export class OpsService {
 
     // ---- Barcode lookup ----
     async findByBarcode(barcode: string, branchId?: string) {
+        if (!barcode?.trim()) throw AppError.badRequest('Barcode is required');
         const drug = await AppDataSource.getRepository(Drug).findOne({
-            where: {barcode},
+            where: {barcode: barcode.trim()},
         });
         if (!drug) throw AppError.notFound('No drug with this barcode');
         let batches: DrugBatch[] = [];
@@ -245,8 +261,9 @@ export class OpsService {
 
     // ---- Min stock / near expiry alerts (query) ----
     async stockAlerts(branchId: string, days = 30) {
+        const bid = requireBranchId(branchId);
         const batches = await AppDataSource.getRepository(DrugBatch).find({
-            where: {branchId},
+            where: {branchId: bid},
             relations: ['drug'],
         });
         const soon = new Date();
@@ -321,10 +338,11 @@ export class OpsService {
             batchNote?: string;
         }>;
     }) {
+        const branchId = requireBranchId(input.branchId);
         if (!input.lines?.length) throw AppError.badRequest('At least one receipt line required');
         return AppDataSource.transaction(async (manager) => {
             const receipt = manager.create(GoodsReceipt, {
-                branchId: input.branchId,
+                branchId,
                 receivedById: input.receivedById,
                 purchaseOrderId: input.purchaseOrderId ?? null,
                 notes: input.notes ?? null,
@@ -336,7 +354,7 @@ export class OpsService {
                 if (line.quantity <= 0) continue;
                 const batch = manager.create(DrugBatch, {
                     drugId: line.drugId,
-                    branchId: input.branchId,
+                    branchId,
                     count: line.quantity,
                     purchasePrice: Math.round(line.purchasePrice),
                     sellingPrice: Math.round(line.sellingPrice ?? line.purchasePrice),
@@ -348,7 +366,7 @@ export class OpsService {
                     drugBatchId: savedBatch.id,
                     type: MovementType.PURCHASE,
                     quantity: line.quantity,
-                    toBranchId: input.branchId,
+                    toBranchId: branchId,
                     performedById: input.receivedById,
                     note: line.batchNote || 'Goods receipt',
                 } as any);
@@ -360,7 +378,7 @@ export class OpsService {
                 action: 'purchasing.goods_receipt',
                 entityType: 'GoodsReceipt',
                 entityId: receipt.id,
-                metadata: {lines: input.lines.length, branchId: input.branchId},
+                metadata: {lines: input.lines.length, branchId},
             });
 
             return receipt;
@@ -378,9 +396,11 @@ export class OpsService {
         saleId?: string;
         notes?: string;
     }) {
+        const branchId = requireBranchId(input.branchId);
         const repo = AppDataSource.getRepository(ControlledDrugLog);
         const row = repo.create({
             ...input,
+            branchId,
             patientName: input.patientName ?? null,
             prescriptionRef: input.prescriptionRef ?? null,
             saleId: input.saleId ?? null,
@@ -390,9 +410,10 @@ export class OpsService {
     }
 
     async listControlledLogs(branchId: string, page = 1, limit = 50) {
+        const bid = requireBranchId(branchId);
         const repo = AppDataSource.getRepository(ControlledDrugLog);
         const [items, total] = await repo.findAndCount({
-            where: {branchId},
+            where: {branchId: bid},
             order: {createdAt: 'DESC'},
             skip: (page - 1) * limit,
             take: limit,
@@ -403,8 +424,9 @@ export class OpsService {
 
     // ---- Accounting export (simple CSV rows) ----
     async accountingExport(branchId: string, from: Date, to: Date) {
+        const bid = requireBranchId(branchId);
         const sales = await AppDataSource.getRepository(SaleTransaction).find({
-            where: {branchId, soldDate: Between(from, to) as any},
+            where: {branchId: bid, soldDate: Between(from, to) as any},
             order: {soldDate: 'ASC'},
         });
         return sales.map((s) => ({
@@ -434,8 +456,9 @@ export class OpsService {
 
     // ---- Reorder suggestions ----
     async reorderSuggestions(branchId: string) {
+        const bid = requireBranchId(branchId);
         const batches = await AppDataSource.getRepository(DrugBatch).find({
-            where: {branchId},
+            where: {branchId: bid},
             relations: ['drug'],
         });
         const byDrug = new Map<string, {drug: Drug; total: number}>();
