@@ -4,6 +4,7 @@ import {DrugBatch} from '../inventory/entities/DrugBatch';
 import {Drug} from '../inventory/entities/Drug';
 import {AppError} from '../../core/errors/AppError';
 import {StockMovement, MovementType} from '../inventory/entities/StockMovement';
+import {ControlledDrugLog} from '../inventory/entities/ControlledDrugLog';
 import {Settings} from '../settings/entities/Settings';
 import {v4 as uuidv4} from 'uuid';
 import {paginate} from '../../core/utils/pagination';
@@ -64,6 +65,10 @@ export class SalesService {
             throw new AppError('Insurance member ID is required when applying insurance', 400);
         }
 
+        if (payment.method === 'pos' && !payment.posReference?.trim()) {
+            throw new AppError('POS reference is required for card payments', 400);
+        }
+
         const coveragePercent =
             insuranceProvider === 'none'
                 ? 0
@@ -111,7 +116,7 @@ export class SalesService {
 
                 const drug = await manager.findOne(Drug, {
                     where: {id: batch.drugId},
-                    select: ['id', 'insuranceEligible', 'name'],
+                    select: ['id', 'insuranceEligible', 'name', 'isControlled'],
                 });
 
                 await manager.decrement(DrugBatch, {id: item.drugBatchId}, 'count', item.quantity);
@@ -119,7 +124,7 @@ export class SalesService {
                 const unitPrice = Math.round(Number(batch.sellingPrice ?? 0));
                 const lineTotal = unitPrice * item.quantity;
 
-                // Professional rule: only formulary/eligible drugs share with insurer
+                // Only formulary/eligible drugs share with insurer
                 const eligible = Boolean(drug?.insuranceEligible) && insuranceProvider !== 'none';
                 const insuranceCoverageAmount = eligible
                     ? Math.round((lineTotal * coveragePercent) / 100)
@@ -137,20 +142,22 @@ export class SalesService {
                     employeeId,
                     branchId,
                     isOfferSale: batch.isOffer,
-                    prescriptionRef: item.prescriptionRef,
+                    prescriptionRef: item.prescriptionRef ?? null,
                     basketId,
                     franchiseFee: 0,
                     paymentMethod: payment.method,
-                    customerName: payment.customerName || undefined,
-                    customerFamily: payment.customerFamily || undefined,
-                    customerPhone: payment.customerPhone || undefined,
-                    posReference: payment.posReference || undefined,
+                    customerName: payment.customerName || null,
+                    customerFamily: payment.customerFamily || null,
+                    customerPhone: payment.customerPhone || null,
+                    posReference: payment.posReference || null,
                     isPaid: payment.method !== 'credit',
                     insuranceProvider: eligible ? insuranceProvider : 'none',
                     insuranceMemberId: eligible ? payment.insuranceMemberId!.trim() : null,
                     insuranceCoverageAmount,
                     patientShareAmount,
                 });
+
+                const saleId = saleInsert.identifiers[0]?.id as string;
 
                 await manager.insert(StockMovement, {
                     drugBatchId: item.drugBatchId,
@@ -161,17 +168,37 @@ export class SalesService {
                     note: `Basket ${basketId}`,
                 });
 
+                if (drug?.isControlled) {
+                    await manager.insert(ControlledDrugLog, {
+                        drugId: drug.id,
+                        branchId,
+                        dispensedById: employeeId,
+                        quantity: item.quantity,
+                        patientName:
+                            [payment.customerName, payment.customerFamily].filter(Boolean).join(' ') ||
+                            null,
+                        prescriptionRef: item.prescriptionRef ?? null,
+                        saleId: saleId ?? null,
+                        notes: `Auto-logged from sale basket ${basketId}`,
+                    });
+                }
+
                 if (saleIndex === 0) {
-                    firstSaleId = saleInsert.identifiers[0].id as string;
+                    firstSaleId = saleId;
                 }
                 saleIndex++;
             }
 
             if (firstSaleId && applyFranchise && franchiseAmount > 0) {
-                await manager.update(SaleTransaction, {id: firstSaleId}, {
-                    franchiseFee: Math.round(franchiseAmount),
-                });
-                basketPatientShare += Math.round(franchiseAmount);
+                const fee = Math.round(franchiseAmount);
+                // Attach franchise to first line and increase patient share accordingly
+                const first = await manager.findOne(SaleTransaction, {where: {id: firstSaleId}});
+                if (first) {
+                    first.franchiseFee = fee;
+                    first.patientShareAmount = Number(first.patientShareAmount || 0) + fee;
+                    await manager.save(first);
+                }
+                basketPatientShare += fee;
             }
 
             return {
@@ -180,7 +207,7 @@ export class SalesService {
                 insuranceProvider,
                 insuranceCoverageAmount: basketInsuranceCoverage,
                 patientShareAmount: basketPatientShare,
-                coveragePercent: eligibleCoverageNote(coveragePercent, insuranceProvider),
+                coveragePercent: insuranceProvider === 'none' ? 0 : coveragePercent,
             };
         });
     }
@@ -286,8 +313,4 @@ export class SalesService {
             return true;
         });
     }
-}
-
-function eligibleCoverageNote(percent: number, provider: InsuranceProvider) {
-    return provider === 'none' ? 0 : percent;
 }
