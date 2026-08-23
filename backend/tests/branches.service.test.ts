@@ -42,7 +42,7 @@ describe('BranchesService', () => {
 
     it('toggleFranchise flips flag', async () => {
         repo.findOneBy.mockResolvedValue({id: 'b1', hasFranchise: false});
-        repo.save.mockImplementation(async (b) => b);
+        repo.save.mockImplementation(async (b: any) => b);
         const result = await service.toggleFranchise('b1');
         expect(result.hasFranchise).toBe(true);
     });
