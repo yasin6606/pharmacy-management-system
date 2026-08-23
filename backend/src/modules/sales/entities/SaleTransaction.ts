@@ -61,8 +61,8 @@ export class SaleTransaction {
     @Column({name: 'is_exchange', default: false})
     isExchange: boolean;
 
-    @Column({name: 'prescription_ref', nullable: true})
-    prescriptionRef: string;
+    @Column({name: 'prescription_ref', type: 'varchar', nullable: true})
+    prescriptionRef: string | null;
 
     @Column({name: 'basket_id', type: 'uuid', nullable: true})
     basketId: string | null;
@@ -80,17 +80,17 @@ export class SaleTransaction {
     @Column({type: 'enum', enum: ['cash', 'transfer', 'pos', 'credit'], default: 'cash'})
     paymentMethod: 'cash' | 'transfer' | 'pos' | 'credit';
 
-    @Column({name: 'customer_name', nullable: true})
-    customerName: string;
+    @Column({name: 'customer_name', type: 'varchar', nullable: true})
+    customerName: string | null;
 
-    @Column({name: 'customer_family', nullable: true})
-    customerFamily: string;
+    @Column({name: 'customer_family', type: 'varchar', nullable: true})
+    customerFamily: string | null;
 
-    @Column({name: 'customer_phone', nullable: true})
-    customerPhone: string;
+    @Column({name: 'customer_phone', type: 'varchar', nullable: true})
+    customerPhone: string | null;
 
-    @Column({name: 'pos_reference', nullable: true})
-    posReference: string;
+    @Column({name: 'pos_reference', type: 'varchar', nullable: true})
+    posReference: string | null;
 
     @Column({name: 'is_paid', default: false})
     isPaid: boolean;

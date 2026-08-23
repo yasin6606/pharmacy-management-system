@@ -5,7 +5,11 @@ import {logger} from '../logger/logger';
 import {env} from '../config/env';
 
 function requestId(req: Request): string {
-    return (req.headers['x-request-id'] as string) || (req as any).id || '-';
+    const headers = req?.headers;
+    if (headers && typeof headers['x-request-id'] === 'string' && headers['x-request-id']) {
+        return headers['x-request-id'];
+    }
+    return (req as any)?.id || '-';
 }
 
 export const errorHandler = (
