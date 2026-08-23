@@ -1,4 +1,4 @@
-// webpack.config.js
+// webpack.config.js — Node target; keep node_modules external to avoid TypeORM critical-dependency noise
 const path = require('path');
 const nodeExternals = require('webpack-node-externals');
 
@@ -9,7 +9,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: 'server.js',
-        clean: true,          // removes old files before build
+        clean: true,
     },
     resolve: {
         extensions: ['.ts', '.js'],
@@ -23,6 +23,7 @@ module.exports = {
             },
         ],
     },
-    // externals: [nodeExternals()],   // keeps native modules and node_modules out of the bundle
-    devtool: false,                 // no source maps in production
+    // Externalize node_modules so TypeORM/pg dynamic requires resolve at runtime
+    externals: [nodeExternals()],
+    devtool: false,
 };

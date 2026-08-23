@@ -18,7 +18,7 @@ export class SetupService {
             fullName: data.fullName,
             role: EmployeeRole.MANAGER,
         });
-        await employeeRepo.save(manager);
-        return { id: manager.id, email: manager.email };
+        const saved = await employeeRepo.save(manager);
+        return { id: saved.id, email: saved.email };
     }
 }
