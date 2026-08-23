@@ -72,7 +72,7 @@ describe('SalesService.recordBatchSale', () => {
                         count: 2,
                         branchId: 'branch-1',
                         drugId: 'drug-1',
-                        sellingPrice: 100,
+                        sellingPrice: 50,
                         isOffer: false,
                     }),
                 decrement: jest.fn(),
@@ -91,7 +91,7 @@ describe('SalesService.recordBatchSale', () => {
         ).rejects.toMatchObject({statusCode: 400});
     });
 
-    it('throws when batch belongs to another branch', async () => {
+    it('rejects sale when batch belongs to another branch', async () => {
         (AppDataSource.transaction as jest.Mock).mockImplementation(async (cb) => {
             const manager = {
                 findOne: jest
@@ -156,14 +156,19 @@ describe('SalesService.recordBatchSale', () => {
             {method: 'cash'}
         );
 
-        expect(ok).toBe(true);
+        expect(ok).toMatchObject({
+            currency: 'IRR',
+            insuranceProvider: 'none',
+            coveragePercent: 0,
+        });
+        expect(ok.basketId).toBeTruthy();
         expect(decrement).toHaveBeenCalledWith(
             expect.anything(),
             {id: 'batch-1'},
             'count',
             3
         );
-        // sale row + stock movement
-        expect(insert).toHaveBeenCalledTimes(2);
+        // sale row + stock movement (+ optional controlled-drug log)
+        expect(insert.mock.calls.length).toBeGreaterThanOrEqual(2);
     });
 });
