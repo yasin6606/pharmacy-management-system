@@ -33,11 +33,11 @@ export class DrugBatch {
   @Column({ name: 'exchanged_quantity', default: 0 })
   exchangedQuantity: number;
 
-  @Column({ name: 'purchase_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  purchasePrice: number;
+  @Column({ name: 'purchase_price', type: 'decimal', precision: 18, scale: 0, nullable: true })
+  purchasePrice: number | null;
 
-  @Column({ name: 'selling_price', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  sellingPrice: number;
+  @Column({ name: 'selling_price', type: 'decimal', precision: 18, scale: 0, nullable: true })
+  sellingPrice: number | null;
 
   @VersionColumn()
   version: number;

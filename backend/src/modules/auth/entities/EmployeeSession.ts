@@ -16,9 +16,9 @@ export class EmployeeSession {
   @CreateDateColumn({ name: 'login_time' })
   loginTime: Date;
 
-  @Column({ name: 'logout_time', nullable: true })
-  logoutTime: Date;
+  @Column({ name: 'logout_time', type: 'timestamp', nullable: true })
+  logoutTime: Date | null;
 
-  @Column({ name: 'ip_address', nullable: true })
-  ipAddress: string;
+  @Column({ name: 'ip_address', type: 'varchar', nullable: true })
+  ipAddress: string | null;
 }
