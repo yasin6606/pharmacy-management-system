@@ -9,55 +9,52 @@ const controller = new OpsController(new OpsService());
 
 router.use(authMiddleware);
 
-// Shifts
-router.post('/shifts/open', controller.openShift);
-router.post('/shifts/:id/close', controller.closeShift);
-router.get('/shifts/current', controller.currentShift);
-router.get('/shifts', controller.listShifts);
+const staff = requireRole('junior', 'senior', 'manager', 'accountant');
+const seniorPlus = requireRole('senior', 'manager', 'accountant');
+const managerPlus = requireRole('manager', 'accountant');
+const managerOnly = requireRole('manager');
+
+// Shifts — any on-duty staff
+router.post('/shifts/open', staff, controller.openShift);
+router.post('/shifts/:id/close', staff, controller.closeShift);
+router.get('/shifts/current', staff, controller.currentShift);
+router.get('/shifts', seniorPlus, controller.listShifts);
 
 // Audit (manager+)
-router.get('/audit', requireRole('manager', 'accountant'), controller.listAudit);
+router.get('/audit', managerPlus, controller.listAudit);
 
 // Official invoice number
-router.post('/invoices/next', controller.nextInvoice);
+router.post('/invoices/next', staff, controller.nextInvoice);
 
 // Clinical
-router.post('/clinical/interactions/check', controller.checkInteractions);
-router.post(
-    '/clinical/interactions',
-    requireRole('manager', 'senior'),
-    controller.upsertInteraction
-);
+router.post('/clinical/interactions/check', staff, controller.checkInteractions);
+router.post('/clinical/interactions', seniorPlus, controller.upsertInteraction);
 
 // Prescriptions
-router.post('/prescriptions', controller.createPrescription);
-router.get('/prescriptions', controller.listPrescriptions);
+router.post('/prescriptions', staff, controller.createPrescription);
+router.get('/prescriptions', staff, controller.listPrescriptions);
 
-// Barcode
-router.get('/barcode/:code', controller.barcodeLookup);
+// Barcode lookup at POS
+router.get('/barcode/:code', staff, controller.barcodeLookup);
 
 // Alerts & reorder
-router.get('/alerts/stock', controller.stockAlerts);
-router.get('/reorder-suggestions', controller.reorderSuggestions);
+router.get('/alerts/stock', staff, controller.stockAlerts);
+router.get('/reorder-suggestions', seniorPlus, controller.reorderSuggestions);
 
 // Notifications
-router.post('/notifications/credit-reminder', controller.creditReminder);
+router.post('/notifications/credit-reminder', managerPlus, controller.creditReminder);
 
 // Purchasing goods receipt
-router.post('/goods-receipts', requireRole('manager', 'senior'), controller.receiveGoods);
+router.post('/goods-receipts', seniorPlus, controller.receiveGoods);
 
-// Controlled drugs
-router.get('/controlled-logs', requireRole('manager', 'senior'), controller.listControlled);
-router.post('/controlled-logs', controller.logControlled);
+// Controlled drugs — write requires senior+; list manager+/senior
+router.get('/controlled-logs', seniorPlus, controller.listControlled);
+router.post('/controlled-logs', seniorPlus, controller.logControlled);
 
 // Accounting export
-router.get(
-    '/accounting/export',
-    requireRole('manager', 'accountant'),
-    controller.accountingExport
-);
+router.get('/accounting/export', managerPlus, controller.accountingExport);
 
 // Backup guidance
-router.get('/backup-info', requireRole('manager'), controller.backupInfo);
+router.get('/backup-info', managerOnly, controller.backupInfo);
 
 export default router;

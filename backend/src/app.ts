@@ -9,6 +9,7 @@ import 'reflect-metadata';
 
 import {errorHandler} from './core/errors/errorHandler';
 import {requestLogger} from './core/middleware/requestLogger';
+import {env} from './core/config/env';
 
 import authRoutes from './modules/auth/auth.routes';
 import employeesRoutes from './modules/employees/employees.routes';
@@ -26,11 +27,38 @@ import settingsRoutes from './modules/settings/settings.routes';
 import customersRoutes from './modules/customers/customers.routes';
 import opsRoutes from './modules/ops/ops.routes';
 
+function buildCorsOptions(): cors.CorsOptions {
+    const list = (env.CORS_ORIGIN || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+    if (list.length > 0) {
+        return {
+            origin: (origin, callback) => {
+                // Allow non-browser clients (no Origin header)
+                if (!origin || list.includes(origin)) {
+                    callback(null, true);
+                } else {
+                    callback(new Error(`CORS blocked for origin: ${origin}`));
+                }
+            },
+            credentials: true,
+        };
+    }
+
+    // Dev default: reflect any origin. Production without CORS_ORIGIN: deny browser cross-origin.
+    if (env.NODE_ENV === 'production') {
+        return {origin: false, credentials: true};
+    }
+    return {origin: true, credentials: true};
+}
+
 export const createApp = () => {
     const app = express();
 
     app.use(helmet());
-    app.use(cors());
+    app.use(cors(buildCorsOptions()));
     app.use(express.json({limit: '1mb'}));
     app.use(cookieParser());
     app.use(requestLogger);

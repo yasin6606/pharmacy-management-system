@@ -12,7 +12,7 @@ export class SalesController {
         const saleResult = await this.salesService.recordBatchSale(
             items,
             req.user.userId,
-            req.user.branchId,
+            req.user.branchId || '',
             payment || {method: 'cash'}
         );
 
@@ -63,7 +63,7 @@ export class SalesController {
 
     markBasketPaid = asyncHandler(async (req: Request, res: Response) => {
         const {basketId} = req.params;
-        await this.salesService.markBasketAsPaid(basketId, req.user.branchId);
+        await this.salesService.markBasketAsPaid(basketId, req.user.branchId || '');
         res.json({success: true, message: 'Credit marked as paid'});
     });
 }
