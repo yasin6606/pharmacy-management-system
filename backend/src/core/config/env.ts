@@ -25,9 +25,12 @@ export const env = {
         process.env.JWT_SECRET,
         'dev-only-insecure-secret-change-me'
     ),
-    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+    /** Access token TTL — prefer hours for pharmacy POS, not multi-day */
+    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '8h',
     TITAK_API_KEY: process.env.TITAK_API_KEY,
     OCR_SERVICE_URL: process.env.OCR_SERVICE_URL,
     REDIS_URL: process.env.REDIS_URL,
     TYPEORM_SYNCHRONIZE: process.env.TYPEORM_SYNCHRONIZE,
+    /** Comma-separated allowed browser origins (e.g. https://pharmacy.example,http://localhost) */
+    CORS_ORIGIN: process.env.CORS_ORIGIN || '',
 };
