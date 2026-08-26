@@ -80,7 +80,7 @@ services:
       PORT: "3001"
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pharmacy_db}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
       TITAK_API_KEY: ${TITAK_API_KEY:-}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       TYPEORM_SYNCHRONIZE: ${TYPEORM_SYNCHRONIZE:-false}
