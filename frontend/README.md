@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pharmacy Management System — Frontend
 
-## Getting Started
+Next.js App Router UI for multi-branch pharmacy operations (EN/FA, light/dark, glass design).
 
-First, run the development server:
+## Stack
+
+- **Next.js** (App Router) + **React** + **TypeScript**
+- **Tailwind CSS** + design tokens in `app/[locale]/globals.css`
+- **next-intl** — locales `en` / `fa` (`messages/en.json`, `messages/fa.json`)
+- **next-themes** — light/dark
+- **Axios** — `lib/api.ts` with `ApiError`, request-id, 401 redirect
+
+## Local development
 
 ```bash
+cd frontend
+npm install
+# Backend API default in dev: http://localhost:3001/api/v1
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000/en](http://localhost:3000/en) or `/fa`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+For Docker, the image is built with `NEXT_PUBLIC_API_URL=/api/v1` and Nginx proxies `/api` to the backend.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Structure
 
-## Learn More
+```
+app/[locale]/
+  (auth)/login, setup
+  (dashboard)/dashboard, inventory, sales, customers, operations, …
+components/ui, components/forms
+context/   AuthContext, ErrorContext, SalesTabsContext
+hooks/     useApi, useRole, …
+lib/       api.ts, currency.ts (formatIRR), offlineQueue.ts, logger.ts
+messages/  en.json, fa.json
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Key UX behaviors
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Area | Behavior |
+|------|----------|
+| Auth | Bearer token in `sessionStorage`; logout invalidates server session |
+| Currency | `formatIRR` everywhere for money |
+| Errors | Toasts via `ErrorContext`; 401 → login redirect |
+| Theme / language | Available on login, setup, and dashboard shell |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tests
 
-## Deploy on Vercel
+```bash
+npm test
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+See `frontend/__tests__/` and root [backend/tests/README.md](../backend/tests/README.md).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Build
+
+```bash
+npm run build
+npm start
+```
+
+Production image: `frontend/Dockerfile` (multi-stage).

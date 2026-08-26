@@ -57,8 +57,6 @@ Also allow the same ports on the instance **iptables/ufw** if enabled (script be
 ssh -i ~/.ssh/your-key ubuntu@YOUR_PUBLIC_IP
 ```
 
-Run the bootstrap script (or copy-paste the same commands):
-
 ```bash
 curl -fsSL https://raw.githubusercontent.com/yasin6606/pharmacy-management-system/main/infrastructure/deploy/bootstrap-oracle.sh | bash
 ```
@@ -78,21 +76,27 @@ Log out and back in (or `newgrp docker`) so the `docker` group applies.
 ## 4. Configure secrets
 
 ```bash
-cd ~/pharmacy-management-system/infrastructure   # or your clone path
+cd ~/pharmacy-management-system/infrastructure
 cp .env.example .env
 nano .env
 ```
 
-**Required:**
+**Required / recommended:**
 
 ```env
 POSTGRES_PASSWORD=use-a-long-random-password
 JWT_SECRET=use-another-long-random-string
-TYPEORM_SYNCHRONIZE=true
+JWT_EXPIRES_IN=8h
+CORS_ORIGIN=http://YOUR_PUBLIC_IP
+# After first successful schema bootstrap:
+TYPEORM_SYNCHRONIZE=false
 HTTP_PORT=80
 ```
 
-After the first successful boot (tables created), set `TYPEORM_SYNCHRONIZE=false` and prefer migrations.
+Notes:
+
+- Set `CORS_ORIGIN` to the URL users type in the browser (include `https://your.domain` when TLS is enabled).
+- Prefer migrations (`backend/src/migrations/BaselinePharmacyOps`) over long-term `TYPEORM_SYNCHRONIZE=true`.
 
 ---
 
@@ -112,6 +116,8 @@ Open: `http://YOUR_PUBLIC_IP`
 
 Health: `http://YOUR_PUBLIC_IP/health`
 
+Users must **log in again** after logout (sessions are server-invalidated).
+
 ---
 
 ## 6. ARM notes
@@ -123,13 +129,7 @@ Ampere is **linux/arm64**. Official images we use are multi-arch:
 - `redis:7-alpine`
 - `nginx:1.27-alpine`
 
-If a build fails with “exec format error”, force platform in Compose:
-
-```yaml
-platform: linux/arm64
-```
-
-on that service (usually not needed for official images).
+If a build fails with “exec format error”, force `platform: linux/arm64` on that service (usually not needed).
 
 ---
 
@@ -137,33 +137,27 @@ on that service (usually not needed for official images).
 
 When you have a domain pointing to the public IP:
 
-1. Install Certbot on the host **or** add a Caddy/Nginx TLS config  
+1. Install Certbot on the host **or** add TLS on Nginx  
 2. Open port **443** in the Security List  
-3. Prefer terminating TLS on the host or a small sidecar; keep app containers internal  
+3. Update `CORS_ORIGIN=https://your.domain`  
+4. Keep app containers internal  
 
 ---
 
 ## 8. Ops cheatsheet
 
 ```bash
-# Status
 docker compose -f ~/pharmacy-management-system/infrastructure/docker-compose.yaml ps
-
-# Logs
 docker compose -f .../docker-compose.yaml logs -f --tail=100 backend
 
-# Update code
 cd ~/pharmacy-management-system && git pull
 cd infrastructure && docker compose up --build -d
 
-# Stop (keep data)
-docker compose down
-
-# Wipe DB (destructive)
-docker compose down -v
+docker compose down          # keep data
+docker compose down -v       # wipe DB (destructive)
 ```
 
-**Backups:** periodically dump Postgres:
+**Backups:**
 
 ```bash
 docker compose exec -T postgres pg_dump -U postgres pharmacy_db | gzip > backup-$(date +%F).sql.gz
@@ -175,11 +169,13 @@ docker compose exec -T postgres pg_dump -U postgres pharmacy_db | gzip > backup-
 
 | Symptom | Fix |
 |---------|-----|
-| Out of host capacity | Other region / retry / smaller shape temporarily |
+| Out of host capacity | Other region / retry |
 | `docker: permission denied` | `newgrp docker` or re-login |
 | Backend unhealthy | `docker compose logs backend` — check `DATABASE_URL` / JWT |
+| Browser CORS error | Set `CORS_ORIGIN` to exact origin (scheme + host + port) |
+| 401 after logout | Expected session invalidation |
 | Frontend 502 | Wait for healthchecks; `docker compose ps` |
 | Can't reach site | Security List ports 80/22; public IP assigned |
-| OOM / kills | Ensure shape is 12 GB; reduce Redis `maxmemory` if needed |
+| OOM / kills | Ensure shape is 12 GB |
 
 Idle Always Free instances can be reclaimed by Oracle if utilization stays very low for days — keep the stack running.

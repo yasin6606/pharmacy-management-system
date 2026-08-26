@@ -1,11 +1,11 @@
 # Pharmacy Management System — Expanded Technical Catalog
 
-**Version:** 1.1 Expanded  
-**Date:** 2026-08-19  
+**Version:** 1.2  
+**Date:** 2026-08-27  
 **Repository:** [yasin6606/pharmacy-management-system](https://github.com/yasin6606/pharmacy-management-system)  
 **Author:** yasin  
 
-This document is the in-repo, searchable companion to the **PDF Technical Catalog**. It covers product features, architecture, domain rules, data model, security, API, UX, deployment, and operations in depth.
+In-repo companion to the PDF Technical Catalog. Covers product features, architecture, domain rules, data model, security (session-aware JWT), API, UX, deployment, and operations.
 
 ---
 
@@ -32,6 +32,7 @@ This document is the in-repo, searchable companion to the **PDF Technical Catalo
 19. [Glossary](#19-glossary--conventions)
 20. [Appendix A — Repository Map](#appendix-a-repository-map)
 21. [Appendix B — Example Workflows](#appendix-b-example-workflows)
+22. [Changelog (catalog)](#22-changelog-catalog)
 
 ---
 
@@ -44,29 +45,31 @@ The **Pharmacy Management System** is a production-oriented, multi-branch platfo
 - Patient insurance cost-sharing  
 - Card-terminal (**POS**) settlement  
 - Employee management with RBAC  
+- Ops hub: shifts, prescriptions, controlled drugs, audit, goods receipt  
 - Loss reporting, purchasing hooks, reporting exports  
 - Integrations: Titak prices; insurer credential storage (Tamin, Salamat, Mosalah)
 
-Architecture: Next.js client → Nginx → Express API → PostgreSQL, with optional Redis for shared rate limits. Design favors explicit domain rules, transactional stock safety, and observable failures (structured logs + `requestId`).
+Architecture: Next.js client → Nginx → Express API → PostgreSQL, with Redis for shared rate limits. Design favors explicit domain rules, transactional stock safety, **session-revocable JWTs**, and observable failures (structured logs + `requestId`).
 
 ### Stakeholders
 
 | Stakeholder | Primary needs | Key modules |
 |-------------|---------------|-------------|
-| Owner / manager | Policy, multi-branch, integrations, franchise | branches, settings, employees, reports |
+| Owner / manager | Policy, multi-branch, integrations, franchise | branches, settings, employees, reports, ops |
 | Pharmacist / cashier | Fast sales, stock, insurance, POS | sales, inventory, POS |
 | Accountant | Credits, revenue, exports | credits, reporting, summary |
-| Warehouse staff | Transfers, batch intake, expiry | batches, transfer |
-| Engineer / SRE | Deploy, logs, schema, scale | infra, logger, errorHandler |
+| Warehouse staff | Transfers, batch intake, expiry | batches, transfer, goods receipt |
+| Engineer / SRE | Deploy, logs, schema, scale | infra, logger, errorHandler, migrations |
 
 ### Design principles
 
 - Domain correctness over convenience — stock must not go negative under concurrent cashiers  
-- Money as whole IRR units (rounded integers)  
+- Money as whole IRR units (`numeric(18,0)` on sales and batch prices)  
 - Insurance is opt-in per sale and eligibility-driven per drug line  
 - Secrets stay server-side; UI only shows masks  
 - One public network entry (Nginx); private data plane  
-- Every API error is structured and correlatable via `requestId`
+- Every API error is structured and correlatable via `requestId`  
+- Logout must invalidate the session server-side
 
 ---
 
@@ -101,19 +104,19 @@ Titak (or similar) may supply regulated prices via `titakCode`. Card payments us
 
 ### 3.1 Platform bootstrap & identity
 
-Fresh DB → public **Setup** creates first manager. JWT auth; `EmployeeSession` for audit. Roles:
+Fresh DB → public **Setup** creates first manager. JWT auth with **session row**; logout sets `logoutTime`. Roles:
 
 | Role | Typical access |
 |------|----------------|
-| `junior` | Sell, view branch stock |
-| `senior` | Broader stock ops where gated |
-| `manager` | Staff, branches, settings, integrations, inventory |
-| `accountant` | Cross-branch sales, credits, reports |
+| `junior` | Sell, view branch stock, basic ops (shifts, barcode, prescriptions) |
+| `senior` | Broader stock ops, goods receipt, controlled logs, clinical upsert |
+| `manager` | Staff, branches, settings, integrations, inventory, audit, backup |
+| `accountant` | Cross-branch sales, credits, reports, audit, accounting export |
 
 ### 3.2 Inventory & catalog
 
 - Drug master independent of physical stock  
-- Batches bind drug + branch + qty + expiry + IRR prices + offer flag  
+- Batches bind drug + branch + qty + expiry + IRR prices (scale 0) + offer flag  
 - Search: name, brand, company  
 - **Safe delete**: blocked while any batch has count > 0  
 - Catalog stats for dashboard KPIs  
@@ -130,13 +133,17 @@ Multi-tab baskets. Payment methods drive UX:
 
 ### 3.4 Credits & records
 
-Credit sales `isPaid=false` until basket marked paid. Credits UI groups by `basketId`, search by name/phone, IRR totals. Records list history with filters for privileged roles.
+Credit sales `isPaid=false` until basket marked paid. Credits UI groups by `basketId`, search by name/phone, IRR totals.
 
-### 3.5 Loss, purchasing, reporting
+### 3.5 Ops hub
+
+Shifts, prescriptions, controlled logs, invoice numbers, barcode, alerts, reorder, goods receipt, interactions, audit, accounting export, backup info — all under `/api/v1/ops` with RBAC.
+
+### 3.6 Loss, purchasing, reporting
 
 Loss: create → approve/reject. Purchasing: suppliers, POs, OCR client hook. Reports: date/branch filters, CSV/PDF, IRR revenue.
 
-### 3.6 UX product features
+### 3.7 UX product features
 
 Glass design system, EN/FA locale prefix, theme + language on login/setup, severity toasts with optional `requestId`.
 
@@ -162,7 +169,7 @@ backend → external APIs (Titak, insurers, POS)
 | Application | `backend/src/modules` | Use-cases, validation, authz |
 | Domain services | `*.service.ts` | Transactions, rules |
 | Persistence | TypeORM | SQL, locks |
-| Infrastructure | `core/`, Docker, Nginx | Logging, networking |
+| Infrastructure | `core/`, Docker, Nginx | Logging, CORS, networking |
 
 **Trust boundaries:** browser untrusted; authz on API; DB/Redis internal only; secrets never fully returned to UI.
 
@@ -185,7 +192,7 @@ backend → external APIs (Titak, insurers, POS)
 | ORM | TypeORM | Transactions, pessimistic locks |
 | DI | Awilix | Service wiring |
 | Logging | Winston | Levels, JSON |
-| Auth | bcryptjs + JWT | Hash + bearer |
+| Auth | bcryptjs + JWT + session table | Hash + revocable bearer |
 | DB | PostgreSQL 16 | Concurrent writes |
 | Cache | Redis 7 | Shared rate limits |
 | Edge | Nginx | Path routing, future TLS |
@@ -196,26 +203,28 @@ backend → external APIs (Titak, insurers, POS)
 
 ### Bootstrap
 
-`index.ts` → TypeORM init → `createApp()` → listen → expiration job → `unhandledRejection` / `uncaughtException` handlers.
+`index.ts` → TypeORM init → `createApp()` → listen → expiration job → process error handlers.
 
 ### Middleware pipeline
 
-`helmet` → `cors` → `json(1mb)` → `cookieParser` → **requestLogger** → routes → API 404 → **errorHandler**.
+`helmet` → **`cors(buildCorsOptions())`** → `json(1mb)` → `cookieParser` → **requestLogger** → routes → API 404 → **errorHandler**.
+
+CORS reads `CORS_ORIGIN` (comma-separated). Production without list: browser origins denied.
 
 ### Modules
 
 | Module | Paths | Responsibilities |
 |--------|-------|------------------|
 | setup | `POST /setup` | First manager |
-| auth | `/auth/*` | Login, me, password, sessions |
+| auth | `/auth/*` | Login, logout, me, sessions |
 | employees | `/employees` | CRUD, roles, branch |
 | branches | `/branches` | CRUD, franchise |
 | inventory | `/inventory/*` | Drugs, batches, transfer, stats |
 | sales | `/sales/*` | Batch sale, list, summary, pay |
+| customers | `/customers` | Patient master |
+| ops | `/ops/*` | Shifts, Rx, controlled, audit, … |
 | settings | `/settings/*` | Franchise, integrations KV |
-| titak | `/integrations/titak/*` | External prices |
-| pos | `/integrations/pos/*` | Terminal lifecycle |
-| insurance | `/integrations/insurance/*` | Adapter hooks |
+| titak / pos / insurance | `/integrations/*` | External systems |
 | loss-reports | `/loss-reports` | Workflow |
 | reporting | `/reporting/*` | Aggregations + export |
 | purchasing | `/purchasing/*` | Suppliers, POs, OCR |
@@ -239,7 +248,7 @@ CSS variables for light/dark; `.glass` / `.glass-strong`; medical teal primary; 
 
 ### Components
 
-Button, Input, Select, Card, Table, Modal, Sidebar, Pagination, ErrorToast, ThemeToggle, LanguageSwitcher.
+Button, Input, Select, Card, Table, Modal, Sidebar, Pagination, ErrorToast, Alert, Slider, ThemeToggle, LanguageSwitcher.
 
 ### State
 
@@ -247,7 +256,7 @@ Button, Input, Select, Card, Table, Modal, Sidebar, Pagination, ErrorToast, Them
 
 ### Screens
 
-Login, Setup, Dashboard, Drugs, Batches, Sales desk, Records, Credits, Reports, Employees, Branches, Loss reports, Settings.
+Login, Setup, Dashboard, Drugs, Batches, Sales desk, Records, Credits, Customers, Operations, Reports, Employees, Branches, Loss reports, Settings.
 
 ---
 
@@ -256,19 +265,18 @@ Login, Setup, Dashboard, Drugs, Batches, Sales desk, Records, Credits, Reports, 
 | Entity | Key fields | Notes |
 |--------|------------|-------|
 | Employee | email, passwordHash, role, currentBranchId | Auth principal |
-| EmployeeSession | login/logout, ip | Audit |
+| EmployeeSession | login/logout, ip | **Revocation source of truth** |
 | Branch | name, isWarehouse, hasFranchise | Org unit |
-| Drug | name, brand, company, titakCode, insuranceEligible, insuranceCode | Catalog |
-| DrugBatch | drugId, branchId, expirationDate, count, prices, isOffer | Stock |
+| Drug | name, brand, company, titakCode, insuranceEligible, barcode, isControlled | Catalog |
+| DrugBatch | drugId, branchId, expirationDate, count, prices (scale 0), isOffer | Stock |
 | StockMovement | type, quantity, branches, performer | Ledger |
 | SaleTransaction | prices, paymentMethod, insurance*, patientShare, basketId, isPaid | Sale line |
-| Settings | key, numeric value | franchise_amount |
-| IntegrationSetting | key, string value | Secrets & URLs |
-| LossReport | status, review fields | Workflow |
-| Supplier / PurchaseOrder | purchasing domain | |
+| Customer | name, phone, nationalId, insurance* | Patients |
+| CashShift / AuditLog / Prescription / ControlledDrugLog / … | Ops domain | |
+| Settings / IntegrationSetting | key-value | Config & secrets |
 
 **Money:** whole IRR; UI formats only.  
-**Schema:** `TYPEORM_SYNCHRONIZE=false` in Compose; migrations preferred in production.
+**Schema:** `TYPEORM_SYNCHRONIZE=false` in Compose; migration `BaselinePharmacyOps` for additive ops tables.
 
 ---
 
@@ -276,20 +284,34 @@ Login, Setup, Dashboard, Drugs, Batches, Sales desk, Records, Credits, Reports, 
 
 ### Auth flow
 
-Login → bcrypt verify → JWT (userId, role, branchId) → session row → client `sessionStorage` → `Authorization: Bearer`.
+1. Login → bcrypt verify → create `EmployeeSession` → JWT (`userId`, `role`, `branchId`, **`sessionId`**)  
+2. Client stores token in `sessionStorage` → `Authorization: Bearer`  
+3. Each request: verify JWT **and** load session with `logoutTime IS NULL`  
+4. Logout → set `logoutTime` → further requests **401**
+
+Default TTL: **`8h`** (`JWT_EXPIRES_IN`).
 
 ### Authorization
 
-RBAC middleware + service-level scoping (non-managers limited to own sales/branch).
+RBAC middleware on routes + service-level scoping. Ops roles:
+
+| Gate | Roles |
+|------|-------|
+| staff | junior, senior, manager, accountant |
+| seniorPlus | senior, manager, accountant |
+| managerPlus | manager, accountant |
+| managerOnly | manager |
 
 ### Mitigations
 
 | Threat | Mitigation |
 |--------|------------|
 | Password at rest | bcrypt |
-| Credential stuffing | Rate limit |
+| Credential stuffing | Rate limit (Redis when available) |
+| Stolen token after logout | Session table check |
 | Injection | TypeORM params + Zod |
 | Secret leakage | Masked integration GET |
+| CSRF / random origins | CORS allowlist |
 | DB exposure | Internal network only |
 
 Helmet headers; TLS recommended at edge in production.
@@ -306,7 +328,7 @@ Helmet headers; TLS recommended at edge in production.
 4. Transaction: lock each batch; check stock/branch; decrement  
 5. `lineTotal = round(price) * qty`  
 6. Coverage only if `insuranceEligible`  
-7. Insert sale + stock movement  
+7. Insert sale + stock movement; controlled-drug log when applicable  
 8. Optional franchise on first line  
 9. Return `{ basketId, currency: 'IRR', insurance totals }`
 
@@ -328,7 +350,7 @@ select POS → POST .../pos/initiate { amount: patientShare }
 
 ### Summaries
 
-`GET /sales/summary` uses SQL `SUM`/`COUNT` (not page-sized client sums).
+`GET /sales/summary` uses SQL aggregates (not page-sized client sums).
 
 ---
 
@@ -340,38 +362,16 @@ select POS → POST .../pos/initiate { amount: patientShare }
 | `titak_base_url` | Base URL override | no |
 | `insurance_*_api_key` | Tamin/Salamat/Mosalah | yes |
 | `insurance_default_coverage_percent` | Default % | no |
-| `pos_terminal_id` | Default terminal | no |
 
-Empty secret field on PUT = keep existing value. Titak updates `lastPriceUpdateDate` and batch selling prices. POS uses `BehMellatAdapter` stub until real SDK is wired.
+Empty secret field on PUT = keep existing value. POS uses `BehMellatAdapter` sandbox until real SDK is wired.
 
 ---
 
 ## 12. Error Handling, Logging & Observability
 
-```json
-{
-  "success": false,
-  "code": "VALIDATION_ERROR",
-  "message": "…",
-  "details": [{ "path": "email", "message": "…" }],
-  "requestId": "uuid"
-}
-```
-
-| Source | HTTP | code |
-|--------|------|------|
-| ZodError | 400 | VALIDATION_ERROR |
-| AppError | varies | err.code |
-| QueryFailedError | 400 | DATABASE_ERROR |
-| JWT | 401 | UNAUTHORIZED |
-| Bad JSON | 400 | BAD_REQUEST |
-| Unknown | 500 | INTERNAL_ERROR |
-
-**Logging:** Winston + `requestLogger` (`durationMs`, `requestId`, `userId`).  
-**Frontend:** `ApiError`, `clientLog`, toast dedupe, severity.  
-**Playbook:** toast/header `requestId` → `docker compose logs backend | grep <id>`.
-
 See [ERROR_HANDLING_AND_LOGGING.md](./ERROR_HANDLING_AND_LOGGING.md).
+
+Structured errors include `code`, `message`, `requestId`. Auth failures after logout return 401 with session messaging.
 
 ---
 
@@ -381,16 +381,17 @@ See [ERROR_HANDLING_AND_LOGGING.md](./ERROR_HANDLING_AND_LOGGING.md).
 |---------|-----------|-------|
 | postgres:16-alpine | no | volume `postgres_data` |
 | redis:7-alpine | no | AOF, 64mb LRU |
-| backend | no | depends on DB/Redis healthy |
+| backend | no | JWT, CORS_ORIGIN, Redis |
 | frontend | no | `NEXT_PUBLIC_API_URL=/api/v1` |
 | nginx | **yes** `:HTTP_PORT` | only public entry |
 
 ```bash
 cd infrastructure && cp .env.example .env
+# POSTGRES_PASSWORD, JWT_SECRET, CORS_ORIGIN=http://localhost
 docker compose up --build -d
-docker compose up -d --build backend frontend
-docker compose logs -f backend
 ```
+
+Migrations: `backend/src/migrations/` — run with CLI DataSource after bootstrap.
 
 Oracle Cloud ARM: `infrastructure/deploy/oracle-cloud.md`.
 
@@ -406,39 +407,46 @@ Prefix: `/api/v1`. Success: `{ success: true, data }`.
 |--------|------|-------------|
 | POST | `/setup` | First manager |
 | POST | `/auth/login` | Token + user |
+| POST | `/auth/logout` | Invalidate session |
 | GET | `/auth/me` | Profile |
-| PUT | `/auth/change-password` | Password change |
 
 ### Master data
 
 | Method | Path | Description |
 |--------|------|-------------|
-| * | `/employees`, `/branches` | Staff & sites |
+| * | `/employees`, `/branches`, `/customers` | Staff, sites, patients |
 | * | `/inventory/drugs`, `/batches` | Catalog & stock |
 | POST | `/inventory/transfer` | Transfer |
 | GET | `/inventory/catalog/stats` | KPIs |
-| GET | `/inventory/branches/:id/inventory` | Branch stock |
 
 ### Sales & POS
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/sales` | Paginated lines |
-| GET | `/sales/summary` | Aggregates |
+| GET | `/sales`, `/sales/summary` | List / aggregates |
 | POST | `/sales/batch` | Atomic basket sale |
 | PATCH | `/sales/basket/:id/pay` | Mark credit paid |
-| POST | `/integrations/pos/initiate` | Start POS |
-| POST | `/integrations/pos/confirm` | Approve/decline |
-| GET | `/integrations/pos/status/:ref` | Status |
+| POST/GET | `/integrations/pos/*` | Terminal lifecycle |
+
+### Ops (role-gated)
+
+| Method | Path | Min role gate |
+|--------|------|---------------|
+| POST/GET | `/ops/shifts/*` | staff / senior for list |
+| POST/GET | `/ops/prescriptions` | staff |
+| GET | `/ops/barcode/:code` | staff |
+| POST | `/ops/goods-receipts` | seniorPlus |
+| GET/POST | `/ops/controlled-logs` | seniorPlus |
+| GET | `/ops/audit` | managerPlus |
+| GET | `/ops/accounting/export` | managerPlus |
+| GET | `/ops/backup-info` | managerOnly |
 
 ### Settings & reports
 
 | Method | Path | Description |
 |--------|------|-------------|
-| * | `/settings/franchise`, `/settings/integrations` | Config |
-| POST | `/integrations/titak/update-price/:drugId` | Titak |
-| GET | `/reporting/sales`, `.../export` | Reports |
-| * | `/loss-reports` | Loss workflow |
+| * | `/settings/*` | Franchise, integrations |
+| * | `/reporting/*`, `/loss-reports` | Reports & loss |
 | GET | `/health` | Liveness |
 
 ---
@@ -449,14 +457,14 @@ Prefix: `/api/v1`. Success: `{ success: true, data }`.
 |----------|-----------|----------|-------------|
 | `POSTGRES_*` | Compose | password yes | DB bootstrap |
 | `JWT_SECRET` | Backend | prod yes | Token signing |
-| `JWT_EXPIRES_IN` | Backend | no | Default `7d` |
+| `JWT_EXPIRES_IN` | Backend | no | Default **`8h`** |
 | `DATABASE_URL` | Backend | yes | Connection string |
 | `REDIS_URL` | Backend | no | Rate limits |
 | `TYPEORM_SYNCHRONIZE` | Backend | no | Bootstrap only |
 | `TITAK_API_KEY` | Backend | no | Fallback |
 | `LOG_LEVEL` | Backend | no | Log verbosity |
 | `LOG_TO_FILES` | Backend | no | File transports |
-| `CORS_ORIGIN` | Backend | no | Browser origin |
+| `CORS_ORIGIN` | Backend | recommended | Comma-separated origins |
 | `NEXT_PUBLIC_API_URL` | Frontend | build | `/api/v1` in Compose |
 | `HTTP_PORT` | Compose | no | Nginx host port |
 
@@ -466,8 +474,8 @@ Prefix: `/api/v1`. Success: `{ success: true, data }`.
 
 ### First boot checklist
 
-1. Strong secrets in `.env`  
-2. Schema strategy (sync once or migrations)  
+1. Strong secrets in `.env` + `CORS_ORIGIN`  
+2. Schema strategy (sync once **or** migrations)  
 3. `docker compose up --build -d`  
 4. `/health` OK  
 5. Setup manager → branch → drugs/batches  
@@ -478,10 +486,11 @@ Prefix: `/api/v1`. Success: `{ success: true, data }`.
 
 | Symptom | Likely cause | Action |
 |---------|--------------|--------|
-| Image `npm ci` fail | Lockfile drift | Refresh lock / install fallback |
+| 401 after logout | Session invalidation | Expected — re-login |
+| 401 after deploy | JWT secret / DB sessions | Re-login |
+| CORS error | Origin not allowlisted | Update `CORS_ORIGIN` |
 | Today sales = 0 | Summary/date bounds | Check `/sales/summary` |
 | Stock error on sell | Concurrent / wrong branch | Read AppError; movements |
-| 401 loops | Expired JWT / secret rotate | Re-login |
 | POS stuck | No confirm | Approve before batch sale |
 | Titak fails | Missing key/code | Settings + `titakCode` |
 
@@ -493,24 +502,22 @@ Volume `postgres_data` and/or `pg_dump`. Redis can be empty-rebuilt.
 
 ## 17. Testing Strategy & Quality
 
-- **Backend Jest:** services, middleware, utils  
+- **Backend Jest:** 19 suites / 65+ tests including session-aware auth middleware  
 - **Frontend Jest:** ApiError, useRole, ErrorContext, utils  
-- **Gates:** TypeScript build, Docker image build, manual go-live checklist  
+- **Gates:** TypeScript/webpack build, Docker image build  
 - **Future:** Playwright E2E for basket + insurance + POS  
 
 ---
 
 ## 18. Roadmap & Extension Points
 
-- Formal migrations + CI checks  
 - Redis-backed POS sessions  
-- Real acquirer SDK  
-- Live insurer adapters  
-- TLS + strict CORS  
+- Encrypt integration secrets at rest  
+- httpOnly Secure cookies + CSRF strategy  
+- Real acquirer SDK / live insurer adapters  
+- TLS at Nginx  
 - Sentry/APM  
 - Playwright E2E  
-- Min-stock alerts / purchase suggestions  
-- Finer permission matrix if needed  
 
 ---
 
@@ -521,14 +528,13 @@ Volume `postgres_data` and/or `pg_dump`. Redis can be empty-rebuilt.
 | IRR | Iranian Rial |
 | Batch | Stock lot at a branch |
 | Basket | Sale lines sharing `basketId` |
-| Franchise fee | Optional fee when `hasFranchise` |
+| Session | `EmployeeSession` row; source of logout |
 | Titak | External price service |
 | Tamin / Salamat / Mosalah | Insurance funds |
 | RBAC | Role-based access control |
 | requestId | Log correlation id |
 | AppError | Safe operational API error |
 | POS | Card terminal flow |
-| Pessimistic lock | DB row lock for safe concurrent updates |
 
 **Conventions:** JSON camelCase; ISO dates in API; integer IRR in logic; locales `en`/`fa` always prefixed.
 
@@ -539,11 +545,11 @@ Volume `postgres_data` and/or `pg_dump`. Redis can be empty-rebuilt.
 ```
 pharmacy-management-system/
 ├── backend/src/core/          # errors, logger, middleware, config
-├── backend/src/modules/       # domain modules
+├── backend/src/modules/       # domain modules (+ ops)
+├── backend/src/migrations/    # TypeORM migrations
 ├── backend/tests/             # Jest
 ├── frontend/app/[locale]/     # routes
 ├── frontend/components/       # ui + forms
-├── frontend/context|hooks|lib
 ├── frontend/messages/         # en.json, fa.json
 ├── docs/                      # catalogs & guides
 └── infrastructure/            # compose, nginx, deploy
@@ -561,10 +567,19 @@ Deploy → setup manager → Branch A → drug + batch (IRR) → test cash sale 
 
 Eligible + non-eligible lines → Salamat + member ID → coverage only on eligible → POS initiate/confirm for patient share → complete.
 
-### B.3 Credit collection
+### B.3 Logout security
 
-Credit sale with customer phone → Credits page → Mark as paid → verify badge.
+User logs out → `logout_time` set → same Bearer token on next API call → **401 Session expired or logged out**.
 
 ---
 
-*End of expanded catalog v1.1 — Pharmacy Management System.*
+## 22. Changelog (catalog)
+
+| Version | Date | Notes |
+|---------|------|-------|
+| 1.1 | 2026-08-19 | Expanded catalog baseline |
+| 1.2 | 2026-08-27 | Session invalidation, CORS, JWT 8h, ops RBAC, IRR scale 0, BaselinePharmacyOps migration |
+
+---
+
+*End of expanded catalog v1.2 — Pharmacy Management System.*

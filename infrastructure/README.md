@@ -22,6 +22,8 @@ Internal network only:
 | **Postgres 16** | Supported release |
 | **Secrets via `.env`** | No passwords/JWT in git |
 | **`TYPEORM_SYNCHRONIZE=false`** | Schema changes go through migrations in real deploys |
+| **`CORS_ORIGIN`** | Browser origin allowlist for the API |
+| **`JWT_EXPIRES_IN` default 8h** | Shorter access window for POS environments |
 | **Healthchecks** | Compose waits until services are actually ready |
 | **Structured logs** | Backend emits requestId + duration; use `docker compose logs -f backend` |
 
@@ -30,7 +32,7 @@ Internal network only:
 ```bash
 cd infrastructure
 cp .env.example .env
-# edit POSTGRES_PASSWORD and JWT_SECRET
+# edit POSTGRES_PASSWORD, JWT_SECRET, CORS_ORIGIN
 
 docker compose up --build -d
 ```
@@ -38,6 +40,18 @@ docker compose up --build -d
 Open http://localhost (or `HTTP_PORT` from `.env`).
 
 First visit → **Setup** page → create manager → login.
+
+### Schema strategy
+
+1. **Bootstrap:** `TYPEORM_SYNCHRONIZE=true` once to create base tables, **or** run TypeORM migrations from `backend/src/migrations/`.
+2. **Steady state:** `TYPEORM_SYNCHRONIZE=false` and apply `BaselinePharmacyOps` (and future migrations).
+
+```bash
+# example (DATABASE_URL must reach Postgres)
+cd ../backend
+npm install
+npm run migration:run
+```
 
 ## Logging & debugging
 
@@ -47,10 +61,10 @@ docker compose logs -f frontend
 docker compose logs -f nginx
 ```
 
-Optional backend env (in compose service environment):
+Optional backend env:
 
 - `LOG_LEVEL=debug|info|warn|error`
-- `LOG_TO_FILES=true` — write rotating files inside the container (prefer stdout in Docker)
+- `LOG_TO_FILES=true` — prefer stdout in Docker
 
 Each API error includes `requestId`; the same id is on response header `x-request-id`.
 
@@ -95,9 +109,10 @@ services:
 docker compose up -d --scale backend=2
 ```
 
-Redis keeps rate-limit counters consistent across replicas.
+Redis keeps rate-limit counters consistent across replicas. (POS in-memory sessions are **not** shared across replicas yet.)
 
 ## TLS
 
 Terminate TLS on Nginx (or a cloud load balancer in front of it).
 Do not publish backend/frontend ports when TLS is enabled at the edge.
+Set `CORS_ORIGIN` to your HTTPS origin(s).

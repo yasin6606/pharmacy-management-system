@@ -14,7 +14,7 @@ npm test
 |------|--------|
 | `appError.test.ts` | AppError |
 | `asyncHandler.test.ts` | asyncHandler |
-| `auth.middleware.test.ts` | JWT auth middleware |
+| `auth.middleware.test.ts` | JWT + **active session** checks |
 | `auth.service.test.ts` | AuthService (login/logout/profile) |
 | `auth.dto.test.ts` | login Zod schema |
 | `branches.service.test.ts` | BranchesService |
@@ -22,9 +22,9 @@ npm test
 | `errorHandler.test.ts` | Global Express error handler |
 | `inventory.expiring.test.ts` | getExpiringBatches |
 | `inventory.transfer.test.ts` | transferStock |
-| `jwt.test.ts` | sign/verify tokens |
+| `jwt.test.ts` | sign/verify typed `JwtPayload` |
 | `loss-reports.service.test.ts` | Loss report review workflow |
-| `pagination.test.ts` | paginate helper |
+| `pagination.test.ts` | paginate / toPaginatedResult helpers |
 | `rateLimit.test.ts` | Rate limit store + middleware |
 | `rbac.middleware.test.ts` | requireRole |
 | `sales.service.test.ts` | recordBatchSale |
@@ -33,6 +33,12 @@ npm test
 | `validation.middleware.test.ts` | Zod validate middleware |
 
 All service tests **mock** TypeORM — no Postgres required.
+
+Auth middleware tests mock `AppDataSource.getRepository` to assert:
+
+- missing token → 401
+- valid token + active session → `req.user` set
+- logged-out / missing session → 401
 
 ## Frontend
 
