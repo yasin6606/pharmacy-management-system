@@ -10,6 +10,7 @@
 ## Included migrations
 
 - `1735689600000-BaselinePharmacyOps.ts` — additive tables/columns for ops, customers, insurance fields, IRR scale.
+- `1735776000000-EmployeeIsActive.ts` — `employees.is_active` for account disable without delete.
 
 ## Generate / run
 

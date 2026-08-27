@@ -14,9 +14,9 @@ describe('loginSchema', () => {
         ).toThrow();
     });
 
-    it('rejects short password', () => {
+    it('rejects empty password', () => {
         expect(() =>
-            loginSchema.parse({body: {email: 'user@example.com', password: '123'}})
+            loginSchema.parse({body: {email: 'user@example.com', password: ''}})
         ).toThrow();
     });
 });

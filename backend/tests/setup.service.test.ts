@@ -1,9 +1,11 @@
 import {SetupService} from '../src/modules/setup/setup.service';
 import {AppDataSource} from '../src/core/config/database';
-import {AppError} from '../src/core/errors/AppError';
 
 jest.mock('../src/core/config/database', () => ({
-    AppDataSource: {getRepository: jest.fn()},
+    AppDataSource: {
+        getRepository: jest.fn(),
+        transaction: jest.fn(),
+    },
 }));
 
 describe('SetupService', () => {
@@ -17,6 +19,12 @@ describe('SetupService', () => {
             save: jest.fn(async (d) => ({...d, id: 'mgr-1'})),
         };
         (AppDataSource.getRepository as jest.Mock).mockReturnValue(repo);
+        (AppDataSource.transaction as jest.Mock).mockImplementation(async (fn) => {
+            const manager = {
+                getRepository: () => repo,
+            };
+            return fn(manager);
+        });
         service = new SetupService();
     });
 

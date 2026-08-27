@@ -24,7 +24,17 @@ describe('EmployeesService', () => {
         };
         branchRepo = {findOneBy: jest.fn()};
         historyRepo = {save: jest.fn()};
-        sessionRepo = {find: jest.fn()};
+        const qb = {
+            update: jest.fn().mockReturnThis(),
+            set: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            execute: jest.fn().mockResolvedValue({affected: 1}),
+        };
+        sessionRepo = {
+            find: jest.fn(),
+            createQueryBuilder: jest.fn(() => qb),
+        };
 
         (AppDataSource.getRepository as jest.Mock)
             .mockReturnValueOnce(employeeRepo)
