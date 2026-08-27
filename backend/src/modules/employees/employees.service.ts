@@ -6,6 +6,7 @@ import {AppError} from '../../core/errors/AppError';
 import {paginate} from '../../core/utils/pagination';
 import bcrypt from 'bcryptjs';
 import {EmployeeSession} from '../auth/entities/EmployeeSession';
+import {BCRYPT_ROUNDS} from '../../core/utils/passwordPolicy';
 
 /** Remove passwordHash from any employee payload */
 function sanitizeEmployee<T extends Partial<Employee> | null>(employee: T): T {
@@ -24,12 +25,23 @@ export class EmployeesService {
     private historyRepo = AppDataSource.getRepository(EmployeeBranchHistory);
     private sessionRepo = AppDataSource.getRepository(EmployeeSession);
 
+    private async invalidateSessions(employeeId: string) {
+        await this.sessionRepo
+            .createQueryBuilder()
+            .update(EmployeeSession)
+            .set({logoutTime: new Date()})
+            .where('employee_id = :employeeId', {employeeId})
+            .andWhere('logout_time IS NULL')
+            .execute();
+    }
+
     async create(data: Partial<Employee> & {password?: string}) {
+        if (data.email) data.email = data.email.trim().toLowerCase();
         const existing = await this.employeeRepo.findOne({where: {email: data.email}});
         if (existing) throw new AppError('Email already in use', 400);
 
         if (data.password) {
-            data.passwordHash = await bcrypt.hash(data.password, 10);
+            data.passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
             delete (data as any).password;
         }
 
@@ -68,19 +80,22 @@ export class EmployeesService {
         };
     }
 
-    async update(id: string, data: Partial<Employee> & {password?: string}) {
+    async update(id: string, data: Partial<Employee> & {password?: string; isActive?: boolean}) {
         const employee = await this.employeeRepo.findOne({
             where: {id},
             relations: ['currentBranch'],
         });
         if (!employee) throw new AppError('Employee not found', 404);
 
-        // Never allow clients to set passwordHash directly
         delete (data as any).passwordHash;
 
+        const prevRole = employee.role;
+        let mustInvalidate = false;
+
         if (data.password) {
-            employee.passwordHash = await bcrypt.hash(data.password, 10);
+            employee.passwordHash = await bcrypt.hash(data.password, BCRYPT_ROUNDS);
             delete (data as any).password;
+            mustInvalidate = true;
         }
 
         if (data.currentBranchId !== undefined) {
@@ -88,11 +103,23 @@ export class EmployeesService {
         }
 
         Object.assign(employee, data);
+
+        if (data.role !== undefined && data.role !== prevRole) {
+            mustInvalidate = true;
+        }
+        if (data.isActive === false) {
+            mustInvalidate = true;
+        }
+
         const saved = await this.employeeRepo.save(employee);
+        if (mustInvalidate) {
+            await this.invalidateSessions(id);
+        }
         return sanitizeEmployee(saved);
     }
 
     async delete(id: string) {
+        await this.invalidateSessions(id);
         const result = await this.employeeRepo.delete(id);
         if (result.affected === 0) throw new AppError('Employee not found', 404);
     }
