@@ -7,7 +7,6 @@ import {AppError} from '../../core/errors/AppError';
 
 /**
  * Strip sensitive fields before any employee object leaves the service layer.
- * passwordHash must never reach the client or logs.
  */
 function sanitizeEmployee(employee: Employee | null) {
     if (!employee) return null;
@@ -15,20 +14,13 @@ function sanitizeEmployee(employee: Employee | null) {
     return safe;
 }
 
-/**
- * Authentication & session lifecycle.
- *
- * - login: verify credentials, open a session row, issue JWT
- * - logout: close the session (best-effort)
- * - getProfile: return the current user without secrets
- */
 export class AuthService {
     private employeeRepo = AppDataSource.getRepository(Employee);
     private sessionRepo = AppDataSource.getRepository(EmployeeSession);
 
     async login(email: string, password: string, ipAddress: string) {
         const employee = await this.employeeRepo.findOne({
-            where: {email},
+            where: {email: email.trim().toLowerCase()},
             relations: ['currentBranch'],
         });
 
@@ -37,13 +29,16 @@ export class AuthService {
             throw new AppError('Invalid credentials', 401);
         }
 
+        if (employee.isActive === false) {
+            throw new AppError('Account disabled', 403);
+        }
+
         const session = this.sessionRepo.create({
             employeeId: employee.id,
-            ipAddress,
+            ipAddress: ipAddress || null,
         });
         await this.sessionRepo.save(session);
 
-        // JWT carries identity + session so logout can invalidate by sessionId
         const token = signToken({
             userId: employee.id,
             role: employee.role,
@@ -64,6 +59,17 @@ export class AuthService {
         await this.sessionRepo.update(sessionId, {logoutTime: new Date()});
     }
 
+    /** Close all open sessions for an employee (password change / disable / role change). */
+    async invalidateAllSessions(employeeId: string) {
+        await this.sessionRepo
+            .createQueryBuilder()
+            .update(EmployeeSession)
+            .set({logoutTime: new Date()})
+            .where('employee_id = :employeeId', {employeeId})
+            .andWhere('logout_time IS NULL')
+            .execute();
+    }
+
     async getProfile(userId: string) {
         const employee = await this.employeeRepo.findOne({
             where: {id: userId},
@@ -71,6 +77,9 @@ export class AuthService {
         });
         if (!employee) {
             throw new AppError('User not found', 404);
+        }
+        if (employee.isActive === false) {
+            throw new AppError('Account disabled', 403);
         }
         return sanitizeEmployee(employee);
     }

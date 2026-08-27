@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, OneToMan
 import { Branch } from '../../branches/entities/Branch';
 import { EmployeeSession } from '../../auth/entities/EmployeeSession';
 import bcrypt from 'bcryptjs';
+import { BCRYPT_ROUNDS } from '../../../core/utils/passwordPolicy';
 
 export enum EmployeeRole {
   JUNIOR = 'junior',
@@ -27,6 +28,10 @@ export class Employee {
   @Column({ type: 'enum', enum: EmployeeRole })
   role: EmployeeRole;
 
+  /** Soft-disable staff without deleting history */
+  @Column({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean;
+
   @ManyToOne(() => Branch, { nullable: true })
   @JoinColumn({ name: 'current_branch_id' })
   currentBranch: Branch;
@@ -43,7 +48,7 @@ export class Employee {
   @BeforeInsert()
   async hashPassword() {
     if (this.passwordHash && !this.passwordHash.startsWith('$2')) {
-      this.passwordHash = await bcrypt.hash(this.passwordHash, 10);
+      this.passwordHash = await bcrypt.hash(this.passwordHash, BCRYPT_ROUNDS);
     }
   }
 }
