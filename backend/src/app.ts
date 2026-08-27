@@ -36,18 +36,16 @@ function buildCorsOptions(): cors.CorsOptions {
     if (list.length > 0) {
         return {
             origin: (origin, callback) => {
-                // Allow non-browser clients (no Origin header)
                 if (!origin || list.includes(origin)) {
                     callback(null, true);
                 } else {
-                    callback(new Error(`CORS blocked for origin: ${origin}`));
+                    callback(null, false);
                 }
             },
             credentials: true,
         };
     }
 
-    // Dev default: reflect any origin. Production without CORS_ORIGIN: deny browser cross-origin.
     if (env.NODE_ENV === 'production') {
         return {origin: false, credentials: true};
     }
@@ -57,7 +55,15 @@ function buildCorsOptions(): cors.CorsOptions {
 export const createApp = () => {
     const app = express();
 
-    app.use(helmet());
+    app.set('trust proxy', 1);
+
+    app.use(
+        helmet({
+            contentSecurityPolicy: false,
+            crossOriginResourcePolicy: {policy: 'same-site'},
+            referrerPolicy: {policy: 'strict-origin-when-cross-origin'},
+        })
+    );
     app.use(cors(buildCorsOptions()));
     app.use(express.json({limit: '1mb'}));
     app.use(cookieParser());
