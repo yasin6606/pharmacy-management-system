@@ -5,7 +5,8 @@ Multi-branch pharmacy operations platform for Iranian pharmacies: inventory with
 **Author:** [yasin](https://github.com/yasin6606)  
 **Repository:** [yasin6606/pharmacy-management-system](https://github.com/yasin6606/pharmacy-management-system)
 
-📘 **Full catalog:** [docs/PROJECT_CATALOG.md](./docs/PROJECT_CATALOG.md) — complete technical & product reference.
+📘 **Full catalog:** [docs/PROJECT_CATALOG.md](./docs/PROJECT_CATALOG.md) — complete technical & product reference.  
+🔒 **Security:** [docs/SECURITY.md](./docs/SECURITY.md) — threat model, findings, hardening.
 
 ---
 
@@ -15,8 +16,10 @@ Multi-branch pharmacy operations platform for Iranian pharmacies: inventory with
 - Multi-branch warehouses & retail sites with stock transfers
 - RBAC: `junior` · `senior` · `manager` · `accountant`
 - Employee sessions with **server-side invalidation on logout** (JWT alone is not enough)
-- JWT access tokens (default TTL **8h**) + bcrypt passwords
-- First-run **setup** wizard for the manager account
+- Staff **isActive** flag; disabled accounts cannot authenticate
+- JWT access tokens (default TTL **8h**) + bcrypt (cost **12**)
+- Password policy: ≥8 characters, letter + digit
+- First-run **setup** wizard for the manager account (rate-limited)
 
 ### Inventory
 - Drug catalog: search, create, edit, safe delete (blocked while stock remains)
@@ -70,7 +73,7 @@ Secrets are stored server-side and **masked** in the UI.
 - Unified **AppError** API responses (`code`, `message`, `requestId`)
 - Frontend toasts with severity, dedupe, and optional request ref
 - **CORS allowlist** via `CORS_ORIGIN`
-- Baseline TypeORM migration for ops tables
+- Baseline TypeORM migration for ops tables + `employees.is_active`
 
 See **[docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md)**.
 
@@ -93,10 +96,11 @@ See **[docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md)
 ```
 pharmacy-management-system/
 ├── backend/
-│   └── src/migrations/     # TypeORM migrations (BaselinePharmacyOps, …)
+│   └── src/migrations/     # TypeORM migrations
 ├── frontend/
 ├── docs/
 │   ├── PROJECT_CATALOG.md
+│   ├── SECURITY.md
 │   ├── ERROR_HANDLING_AND_LOGGING.md
 │   └── NEW_FEATURES_2026-08.md
 ├── infrastructure/
@@ -136,7 +140,6 @@ docker compose up --build -d
 After first boot with synchronize, prefer:
 
 ```bash
-# run migrations (from backend with DATABASE_URL pointing at Postgres)
 cd ../backend && npm run migration:run
 ```
 
@@ -149,10 +152,7 @@ docker compose up -d --build backend frontend
 ### Local dev
 
 ```bash
-# backend → :3001
 cd backend && npm install && npm run dev
-
-# frontend → :3000  (API at http://localhost:3001/api/v1)
 cd frontend && npm install && npm run dev
 ```
 
@@ -161,7 +161,7 @@ cd frontend && npm install && npm run dev
 2. Create manager → `/login`
 3. Branches → drugs (Titak / insurance flags) → batches → sales
 
-> **Note:** After logout, tokens are rejected server-side. After deploy/secret rotation, users must log in again.
+> **Note:** After logout, password change, role change, or account disable, tokens are rejected. After deploy/secret rotation, users must log in again.
 
 ---
 
@@ -180,52 +180,25 @@ See `.env.example`.
 | `REDIS_URL` | no | Shared rate limits |
 | `HTTP_PORT` | no | Nginx host port (default 80) |
 
-### Backend extras
-| Variable | Description |
-|----------|-------------|
-| `LOG_LEVEL` | `debug` · `info` · `warn` · `error` |
-| `LOG_TO_FILES` | `true` to write rotating log files |
-| `TITAK_API_KEY` | Optional env fallback; prefer Settings UI |
-
 ---
 
 ## API overview
 
-Prefix: `/api/v1`
-
-| Area | Paths |
-|------|--------|
-| Setup / Auth | `/setup`, `/auth` |
-| Staff / Branches | `/employees`, `/branches` |
-| Inventory | `/inventory/*`, `/inventory/catalog/stats` |
-| Sales | `/sales`, `/sales/summary`, `/sales/batch`, basket pay |
-| Customers | `/customers` |
-| Ops | `/ops/shifts/*`, `/ops/prescriptions`, `/ops/barcode/:code`, `/ops/audit`, … |
-| POS | `/integrations/pos/initiate`, `/confirm`, `/status/:ref` |
-| Titak | `/integrations/titak/...` |
-| Settings | `/settings/franchise`, `/settings/integrations` |
-| Reporting / Loss | `/reporting`, `/loss-reports` |
-
-Error shape:
-
-```json
-{
-  "success": false,
-  "code": "NOT_FOUND",
-  "message": "Drug not found",
-  "requestId": "uuid"
-}
-```
+Prefix: `/api/v1` — Setup `/setup`, Auth `/auth`, Staff `/employees`, Inventory `/inventory/*`, Sales `/sales/*`, Customers `/customers`, Ops `/ops/*`, Integrations, Settings, Reporting.
 
 ---
 
 ## Security
 
-- bcrypt · **JWT + live session check** · RBAC on sales and ops · login rate limiting (Redis when available)
-- Logout sets `employee_sessions.logout_time` → subsequent API calls with that token return **401**
+- bcrypt (cost **12**) · **JWT + live session + DB role** · account **isActive** · login rate limiting (Redis when available)
+- Logout / password change / role change / disable / delete → sessions closed → **401**
+- Password policy: ≥8 chars, letter + digit
 - Helmet · Zod validation · secrets via env / integration table (masked)
-- **CORS** restricted by `CORS_ORIGIN` (production denies browser origins if unset)
+- **CORS** restricted by `CORS_ORIGIN`; Nginx CSP + security headers
+- `trust proxy` for correct client IP behind Nginx
 - DB/Redis not published by default
+
+Full write-up: **[docs/SECURITY.md](./docs/SECURITY.md)**.
 
 ---
 
@@ -234,8 +207,9 @@ Error shape:
 | Doc | Content |
 |-----|---------|
 | **[docs/PROJECT_CATALOG.md](./docs/PROJECT_CATALOG.md)** | **Full technical & product catalog** |
+| **[docs/SECURITY.md](./docs/SECURITY.md)** | Threat model, findings, hardening |
 | [docs/ERROR_HANDLING_AND_LOGGING.md](./docs/ERROR_HANDLING_AND_LOGGING.md) | Errors, request IDs, logging |
-| [docs/NEW_FEATURES_2026-08.md](./docs/NEW_FEATURES_2026-08.md) | Gap features + security hardening notes |
+| [docs/NEW_FEATURES_2026-08.md](./docs/NEW_FEATURES_2026-08.md) | Gap features + security notes |
 | [infrastructure/README.md](./infrastructure/README.md) | Compose architecture |
 | [infrastructure/deploy/oracle-cloud.md](./infrastructure/deploy/oracle-cloud.md) | Free ARM deploy |
 | [backend/src/migrations/README.md](./backend/src/migrations/README.md) | Schema migrations policy |
