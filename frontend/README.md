@@ -40,7 +40,7 @@ messages/  en.json, fa.json
 
 | Area | Behavior |
 |------|----------|
-| Auth | Bearer token in `sessionStorage`; logout invalidates server session |
+| Auth | Access token in `sessionStorage`; logout invalidates server session |
 | Currency | `formatIRR` everywhere for money |
 | Errors | Toasts via `ErrorContext`; 401 → login redirect |
 | Theme / language | Available on login, setup, and dashboard shell |
